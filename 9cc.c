@@ -22,9 +22,12 @@ typedef struct {
   char *input;  // token string (for error messsage)
 } Token;
 
-// put result of tgkenized tokens into bellow.
-// we assume that do not input over 100 tokens
-Token tokens[100];
+Token *new_token(int ty, char *input) {
+  Token *token = malloc(sizeof(Token));
+  token->ty = ty;
+  token->input = input;
+  return token;
+}
 
 // Vector
 typedef struct {
@@ -72,9 +75,10 @@ bool startswith(char *s1, char *s2) {
   return !strncmp(s1, s2, strlen(s2));
 }
 
-// split string that p pointed to token, and store them to tokens
-void tokenize(char *p) {
-  int i = 0;
+// split string that p pointed to token, and store them to Vector
+Vector *tokenize(char *p) {
+  Vector *vec = new_vector();
+
   while(*p) {
     // skip white spaces
     if (isspace(*p)) {
@@ -83,16 +87,16 @@ void tokenize(char *p) {
     }
 
     bool found = false;
-    for (int j = 0; symbols[j].name; j++) {
-      char *name = symbols[j].name;
+    for (int i = 0; symbols[i].name; i++) {
+      char *name = symbols[i].name;
       if (!startswith(p, name)) {
         continue;
       }
 
-      tokens[i].ty = symbols[j].ty;
-      tokens[i].input = name;
+      Token *token = new_token(symbols[i].ty, name);
+      vec_push(vec, (void *)token);
+
       p += strlen(name);
-      i++;
       found = true;
       break;
     }
@@ -101,18 +105,16 @@ void tokenize(char *p) {
     }
 
     if (strchr("+-*/()<>", *p)) {
-      tokens[i].ty = *p;
-      tokens[i].input = p;
-      i++;
+      Token *token = new_token(*p, p);
+      vec_push(vec, (void *)token);
       p++;
       continue;
     }
 
     if (isdigit(*p)) {
-      tokens[i].ty = TK_NUM;
-      tokens[i].input = p;
-      tokens[i].val = strtol(p, &p, 10);
-      i++;
+      Token *token = new_token(TK_NUM, p);
+      vec_push(vec, (void *)token);
+      token->val = strtol(p, &p, 10);
       continue;
     }
 
@@ -120,12 +122,15 @@ void tokenize(char *p) {
     exit(1);
   }
 
-  tokens[i].ty = TK_EOF;
-  tokens[i].input = p;
+  Token *token = new_token(TK_EOF, p);
+  vec_push(vec, (void *)token);
+
+  return vec;
 }
 
 // Abstract syntax tree
 
+Vector *tokens;
 int pos = 0; // current token position
 
 enum {
@@ -193,8 +198,17 @@ Node *mul() ;
 Node *term() ;
 Node *unary() ;
 
+Token *current_token() {
+  return (Token *)tokens->data[pos];
+}
+
+Token *next_token() {
+  return (Token *)tokens->data[pos++];
+}
+
 int consume(int ty) {
-  if (tokens[pos].ty != ty) {
+  Token *t = current_token();
+  if (t->ty != ty) {
     return 0;
   }
 
@@ -263,20 +277,22 @@ Node *mul() {
 }
 
 Node *term() {
+  Token *t = current_token();
+
   // if next token is '(', "(" add ")" is expected
   if (consume('(')) {
     Node *node = equality();
     if (!consume(')')) {
-      error("expected ')' : %s", tokens[pos].input);
+      error("expected ')' : %s", t->input);
     }
     return node;
   }
   // otherwise it should be a number
-  if (tokens[pos].ty == TK_NUM) {
-    return new_node_num(tokens[pos++].val);
+  if (t->ty == TK_NUM) {
+    return new_node_num(next_token()->val);
   }
 
-  error("invalid token: %s", tokens[pos].input);
+  error("invalid token: %s", t->input);
   exit(1);
 }
 
@@ -381,10 +397,11 @@ int main(int argc, char **argv) {
   }
 
   // tokenize input
-  tokenize(argv[1]);
+  tokens = tokenize(argv[1]);
 
-  for(int i = 0; tokens[i].ty != TK_EOF; i++) {
-    printf("# token %2d : ty = %d, val = %d, input = %s\n", i, tokens[i].ty, tokens[i].val, tokens[i].input);
+  for(int i = 0; i < tokens->len; i++) {
+    Token *t = (Token *)tokens->data[i];
+    printf("# token %2d : ty = %d, val = %d, input = %s\n", i, t->ty, t->val, t->input);
   }
 
   Node *node = equality();
