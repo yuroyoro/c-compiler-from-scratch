@@ -97,6 +97,7 @@ Node *new_node_num(int val) {
 Node *add() ;
 Node *mul() ;
 Node *term() ;
+Node *unary() ;
 
 int consume(int ty) {
   if (tokens[pos].ty != ty) {
@@ -122,13 +123,13 @@ Node *add() {
 }
 
 Node *mul() {
-  Node *node = term();
+  Node *node = unary();
 
   for (;;) {
     if (consume('*')) {
-      node = new_node('*', node, term());
+      node = new_node('*', node, unary());
     } else if (consume('/')) {
-      node = new_node('/', node, term());
+      node = new_node('/', node, unary());
     } else {
       return node;
     }
@@ -153,17 +154,28 @@ Node *term() {
   exit(1);
 }
 
+Node *unary() {
+  if (consume('+')) {
+    return term();
+  }
+  if (consume('-')) {
+    return new_node('-', new_node_num(0), term());
+  }
+
+  return term();
+}
+
 // code generator
 void gen(Node *node) {
   if (node->ty == ND_NUM) {
-    printf(" push %d\n", node->val);
+    printf("  push %d\n", node->val);
     return;
   }
 
   gen(node->lhs);
   gen(node->rhs);
-  printf(  "pop rdi\n");
-  printf(  "pop rax\n");
+  printf("  pop rdi\n");
+  printf("  pop rax\n");
 
   switch (node->ty) {
     case '+':
@@ -176,7 +188,7 @@ void gen(Node *node) {
       printf("  mul rdi\n");
       break;
     case '/':
-      printf("  mov rdx, 0\n");
+      printf("  mov rdx, 0\n"); // TODO: signed int
       printf("  div rdi\n");
       break;
   }
