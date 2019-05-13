@@ -26,6 +26,30 @@ typedef struct {
 // we assume that do not input over 100 tokens
 Token tokens[100];
 
+// Vector
+typedef struct {
+  void **data;
+  int capacity;
+  int len;
+} Vector;
+
+Vector *new_vector() {
+  Vector *vec = malloc(sizeof(Vector));
+  vec->data = malloc(sizeof(void *) * 16);
+  vec->capacity = 16;
+  vec->len = 0;
+  return vec;
+}
+
+void vec_push(Vector *vec, void *elem) {
+  if (vec->capacity == vec->len) {
+    vec->capacity *= 2;
+    vec->data = realloc(vec->data, sizeof(void *) * vec-> capacity);
+  }
+
+  vec->data[vec->len++] = elem;
+}
+
 // error reporting fuction
 void error(char *fmt, ...) {
   va_list ap;
@@ -321,10 +345,39 @@ void gen(Node *node) {
   printf("  push rax\n");
 }
 
+// unit test for Vector
+void expect(int line, int expected, int actual) {
+  if (expected == actual) {
+    return;
+  }
+
+  fprintf(stderr, "%d: %d expected, but got %d\n", line, expected, actual);
+  exit(1);
+}
+
+void runtest() {
+  Vector *vec = new_vector();
+  expect(__LINE__, 0, vec->len);
+
+  for (int i = 0; i < 100; i++) {
+    vec_push(vec, (void *)(long)i);
+  }
+
+  expect(__LINE__, 100, vec->len);
+  expect(__LINE__, 0, (long)vec->data[0]);
+  expect(__LINE__, 50, (long)vec->data[50]);
+  expect(__LINE__, 99, (long)vec->data[99]);
+}
+
 int main(int argc, char **argv) {
   if (argc != 2) {
     fprintf(stderr, "invalid argument count\n");
     return 1;
+  }
+
+  if (!strncmp(argv[1], "-test", 5)) {
+    runtest();
+    return 0;
   }
 
   // tokenize input
