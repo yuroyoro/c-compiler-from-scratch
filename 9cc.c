@@ -2,11 +2,17 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 
 // Tokens
 enum {
   TK_NUM = 256, // number
+  TK_EQ, // ==
+  TK_NE, // !=
+  TK_LE, // <=
+  TK_GE, // >=
+
   TK_EOF,       // terminator
 };
 
@@ -29,6 +35,19 @@ void error(char *fmt, ...) {
   exit(1);
 }
 
+static struct {
+  char *name;
+  int ty;
+} symbols[] = {
+    {"!=", TK_NE}, {"<=", TK_LE},
+    {"==", TK_EQ}, {">=", TK_GE},
+    {NULL, 0},
+};
+
+bool startswith(char *s1, char *s2) {
+  return !strncmp(s1, s2, strlen(s2));
+}
+
 // split string that p pointed to token, and store them to tokens
 void tokenize(char *p) {
   int i = 0;
@@ -39,7 +58,25 @@ void tokenize(char *p) {
       continue;
     }
 
-    if (*p == '+' || *p == '-' || *p == '*' || *p == '/' || *p == '(' || *p == ')' ) {
+    bool found = false;
+    for (int j = 0; symbols[j].name; j++) {
+      char *name = symbols[j].name;
+      if (!startswith(p, name)) {
+        continue;
+      }
+
+      tokens[i].ty = symbols[j].ty;
+      tokens[i].input = name;
+      p += strlen(name);
+      i++;
+      found = true;
+      break;
+    }
+    if (found) {
+      continue;
+    }
+
+    if (strchr("+-*/()<>", *p)) {
       tokens[i].ty = *p;
       tokens[i].input = p;
       i++;
@@ -69,6 +106,9 @@ int pos = 0; // current token position
 
 enum {
   ND_NUM = 256, // number
+  ND_EQ, // ==
+  ND_NE, // !=
+  ND_LE, // <=
 };
 
 typedef struct Node {
@@ -93,7 +133,37 @@ Node *new_node_num(int val) {
   return node;
 }
 
+/*
+  equality: relational
+  equality: equality "==" relational
+  equality: equality "!=" relational
+
+  relational: add
+  relational: relational "<"  add
+  relational: relational "<=" add
+  relational: relational ">"  add
+  relational: relational ">=" add
+
+  add: mul
+  add: add "+" mul
+  add: add "-" mul
+
+  mul: unary
+  mul: mul "*" unary
+  mul: mul "/" unary
+
+  unary: term
+  unary: "+" term
+  unary: "-" term
+
+  term: num
+  term: "(" equality ")"
+*/
+
 // paser functions
+// TODO: split header file
+Node *equality() ;
+Node *relational();
 Node *add() ;
 Node *mul() ;
 Node *term() ;
@@ -106,6 +176,38 @@ int consume(int ty) {
 
   pos++;
   return 1;
+}
+
+Node *equality() {
+  Node *node = relational();
+
+  for (;;) {
+    if (consume(TK_EQ)){
+      node = new_node(ND_EQ, node, relational());
+    } else if (consume(TK_NE)) {
+      node = new_node(ND_NE, node, relational());
+    } else {
+      return node;
+    }
+  }
+}
+
+Node *relational() {
+  Node *node = add();
+
+  for (;;) {
+    if (consume(TK_LE)){
+      node = new_node(ND_LE, node, add());
+    } else if (consume('<')) {
+      node = new_node('<', node, add());
+    } else if (consume(TK_GE)) {
+      node = new_node(ND_LE, add(), node);
+    } else if (consume('>')) {
+      node = new_node('<', add(), node);
+    } else {
+      return node;
+    }
+  }
 }
 
 Node *add() {
@@ -139,7 +241,7 @@ Node *mul() {
 Node *term() {
   // if next token is '(', "(" add ")" is expected
   if (consume('(')) {
-    Node *node = add();
+    Node *node = equality();
     if (!consume(')')) {
       error("expected ')' : %s", tokens[pos].input);
     }
@@ -168,16 +270,39 @@ Node *unary() {
 // code generator
 void gen(Node *node) {
   if (node->ty == ND_NUM) {
+    printf("  # node num %d\n", node->val);
     printf("  push %d\n", node->val);
     return;
   }
 
   gen(node->lhs);
   gen(node->rhs);
+
+  printf("  # node %d\n", node->ty);
   printf("  pop rdi\n");
   printf("  pop rax\n");
 
   switch (node->ty) {
+    case ND_EQ:
+      printf("  cmp rax, rdi\n");
+      printf("  sete al\n");
+      printf("  movzb rax, al\n");
+      break;
+    case ND_NE:
+      printf("  cmp rax, rdi\n");
+      printf("  setne al\n");
+      printf("  movzb rax, al\n");
+      break;
+    case ND_LE:
+      printf("  cmp rax, rdi\n");
+      printf("  setle al\n");
+      printf("  movzb rax, al\n");
+      break;
+    case '<':
+      printf("  cmp rax, rdi\n");
+      printf("  setl al\n");
+      printf("  movzb rax, al\n");
+      break;
     case '+':
       printf("  add rax, rdi\n");
       break;
@@ -204,7 +329,12 @@ int main(int argc, char **argv) {
 
   // tokenize input
   tokenize(argv[1]);
-  Node *node = add();
+
+  for(int i = 0; tokens[i].ty != TK_EOF; i++) {
+    printf("# token %2d : ty = %d, val = %d, input = %s\n", i, tokens[i].ty, tokens[i].val, tokens[i].input);
+  }
+
+  Node *node = equality();
 
   // print assembler headers
   printf(".intel_syntax noprefix\n");
