@@ -17,7 +17,6 @@ try(){
   fi
 }
 
-
 # step 1 : number
 try  0 0
 try 42 42
@@ -35,6 +34,7 @@ try  4 "(3+5)/2"
 
 # step 5 : unary operator
 try 30 "-3*+5*-2"
+try  3 "-3 * -1"
 # try  5 "(-6+-4)/-2"
 try 20 "(-6+-4)*-2"
 
@@ -57,5 +57,10 @@ try  0 "3 <= 2"
 try  1 "3 < 4"
 try  0 "3 < 3"
 try  0 "3 < 2"
+
+# step 9: variable, assign and statements
+try 42 "42;"
+try  4 "a=b=2;a+b;"
+try  1 "a = 3; b = a + 4; (a + 3) / 2 < a + b;"
 
 echo OK

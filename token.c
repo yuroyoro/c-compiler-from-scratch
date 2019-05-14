@@ -31,6 +31,7 @@ Vector *tokenize(char *p) {
       continue;
     }
 
+    // multi charcter operator
     bool found = false;
     for (int i = 0; symbols[i].name; i++) {
       char *name = symbols[i].name;
@@ -49,17 +50,27 @@ Vector *tokenize(char *p) {
       continue;
     }
 
-    if (strchr("+-*/()<>", *p)) {
+    // single charcter operator
+    if (strchr("+-*/()<>;=", *p)) {
       Token *token = new_token(*p, p);
       vec_push(vec, (void *)token);
       p++;
       continue;
     }
 
+    // number
     if (isdigit(*p)) {
       Token *token = new_token(TK_NUM, p);
       vec_push(vec, (void *)token);
       token->val = strtol(p, &p, 10);
+      continue;
+    }
+
+    // identifier
+    if ('a' <= *p && *p <= 'z') {
+      Token *token = new_token(TK_IDENT, p);
+      vec_push(vec, (void *)token);
+      p++;
       continue;
     }
 

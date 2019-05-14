@@ -18,10 +18,11 @@ void vec_push(Vector *vec, void *elem) ;
 // token.c
 enum {
   TK_NUM = 256, // number
-  TK_EQ, // ==
-  TK_NE, // !=
-  TK_LE, // <=
-  TK_GE, // >=
+  TK_IDENT,     // identifier
+  TK_EQ,        // ==
+  TK_NE,        // !=
+  TK_LE,        // <=
+  TK_GE,        // >=
 
   TK_EOF,       // terminator
 };
@@ -40,9 +41,10 @@ extern int pos ; // current token position
 
 enum {
   ND_NUM = 256, // number
-  ND_EQ, // ==
-  ND_NE, // !=
-  ND_LE, // <=
+  ND_IDENT,     // identifier
+  ND_EQ,        // ==
+  ND_NE,        // !=
+  ND_LE,        // <=
 };
 
 typedef struct Node {
@@ -50,12 +52,14 @@ typedef struct Node {
   struct Node *lhs; // left hand side
   struct Node *rhs; // right hand side
   int    val;       // number value if ty == ND_NUM
+  char   name;     // identifier name
 } Node;
 
-Node *equality() ; // TODO: rename
+extern Node *code[100];
+void program() ;
 
 // code_gen.c
-void gen(Node *node) ;
+void generate() ;
 
 // main.c
 void error(char *fmt, ...) ;

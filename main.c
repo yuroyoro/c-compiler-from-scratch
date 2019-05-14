@@ -28,20 +28,10 @@ int main(int argc, char **argv) {
     printf("# token %2d : ty = %d, val = %d, input = %s\n", i, t->ty, t->val, t->input);
   }
 
-  Node *node = equality();
-
-  // print assembler headers
-  printf(".intel_syntax noprefix\n");
-  printf(".global main\n");
-  printf("main:\n");
+  program();
 
   // generate assembler codes by traversing AST
-  gen(node);
-
-  // stack top value should be the result of whole program expression.
-  // load it to rax to return code
-  printf("  pop rax\n");
-  printf("  ret\n");
+  generate();
 
   return 0;
 }

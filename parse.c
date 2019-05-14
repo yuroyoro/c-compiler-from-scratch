@@ -20,35 +20,32 @@ static Node *new_node_num(int val) {
   return node;
 }
 
+static Node *new_node_ident(char name) {
+  Node *node = malloc(sizeof(Node));
+  node->ty = ND_IDENT;
+  node->name = name;
+  return node;
+}
 /*
-  equality: relational
-  equality: equality "==" relational
-  equality: equality "!=" relational
-
-  relational: add
-  relational: relational "<"  add
-  relational: relational "<=" add
-  relational: relational ">"  add
-  relational: relational ">=" add
-
-  add: mul
-  add: add "+" mul
-  add: add "-" mul
-
-  mul: unary
-  mul: mul "*" unary
-  mul: mul "/" unary
-
-  unary: term
-  unary: "+" term
-  unary: "-" term
-
-  term: num
-  term: "(" equality ")"
+  program    = { stmt }
+  stmt       = expr ";"
+  expr       = assign
+  assign     = equality [ "=" assign ]
+  equality   = relational { ( "==" | "!=" ) relational }
+  relational = add { ( "<" | "<=" | ">" | ">=" ) add }
+  add        = mul { ( "+" | "-" ) mul }
+  mul        = unary { ( "*" | "/" ) unary }
+  unary      = [ "+" | "-" ] term
+  term       = num | "(" expr ")" term: "(" equality ")"
 */
 
+Node *code[100];
+
 // paser functions
-// TODO: split header file
+static Node *stmt() ;
+static Node *expr() ;
+static Node *assign() ;
+static Node *equality();
 static Node *relational();
 static Node *add() ;
 static Node *mul() ;
@@ -71,6 +68,38 @@ static int consume(int ty) {
 
   pos++;
   return 1;
+}
+
+void program() {
+  int i = 0;
+  while(current_token()->ty != TK_EOF) {
+    code[i++] = stmt();
+  }
+  code[i] = NULL;
+}
+
+Node *stmt() {
+  Node *node = expr();
+
+  Token *t = current_token();
+  if (!consume(';') && t->ty != TK_EOF) {
+    error("expected ';' : %s", t->input);
+  }
+
+  return node;
+}
+
+Node *expr() {
+  return assign();
+}
+
+Node *assign() {
+  Node *node = equality();
+  if (consume('=')) {
+    node = new_node('=', node, assign());
+  }
+
+  return node;
 }
 
 Node *equality() {
@@ -144,9 +173,15 @@ static Node *term() {
     }
     return node;
   }
-  // otherwise it should be a number
+
+  // number
   if (t->ty == TK_NUM) {
     return new_node_num(next_token()->val);
+  }
+
+  // identifier
+  if (t->ty == TK_IDENT) {
+    return new_node_ident(*next_token()->input);
   }
 
   error("invalid token: %s", t->input);
