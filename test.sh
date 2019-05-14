@@ -35,7 +35,7 @@ try  4 "(3+5)/2"
 # step 5 : unary operator
 try 30 "-3*+5*-2"
 try  3 "-3 * -1"
-# try  5 "(-6+-4)/-2"
+try  5 "(-6+-4)/-2"
 try 20 "(-6+-4)*-2"
 
 # step 6 : equality and relational operator

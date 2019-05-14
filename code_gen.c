@@ -114,8 +114,8 @@ static void gen(Node *node) {
       printf("  mul   rdi\n");
       break;
     case '/':
-      printf("  mov   rdx, 0\n"); // TODO: signed int
-      printf("  div   rdi\n");
+      printf("  cqo\n");
+      printf("  idiv  rdi\n");
       break;
   }
 
