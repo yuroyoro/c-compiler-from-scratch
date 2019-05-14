@@ -1,5 +1,7 @@
 #include "9cc.h"
 
+static void gen(Node *node) ;
+
 static void gen_num(Node *node) {
   printf("  # node num %d\n", node->val);
   printf("  push  %d\n", node->val);
@@ -38,6 +40,14 @@ static void gen_load_mem() {
 
 }
 
+static void gen_return(Node *node) {
+  gen(node->lhs);
+  printf("  pop   rax\n");
+  printf("  mov   rsp, rbp\n");
+  printf("  pop   rbp\n");
+  printf("  ret\n");
+}
+
 static void gen_header() {
   printf(".intel_syntax noprefix\n");
   printf(".global main\n");
@@ -55,12 +65,16 @@ static void gen_epilogue() {
   printf("  mov   rsp, rbp\n");
   printf("  pop   rbp\n");
   printf("  ret\n");
-
 }
 
 // code generator
 static void gen(Node *node) {
   printf("  # node %d\n", node->ty);
+
+  if (node->ty == ND_RETURN) {
+    gen_return(node);
+    return;
+  }
 
   if (node->ty == ND_NUM) {
     gen_num(node);

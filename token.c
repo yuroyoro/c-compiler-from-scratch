@@ -20,6 +20,17 @@ static bool startswith(char *s1, char *s2) {
   return !strncmp(s1, s2, strlen(s2));
 }
 
+static bool is_alnum(char c) {
+  return ('a' <= c && c <= 'z') ||
+         ('A' <= c && c <= 'Z') ||
+         ('0' <= c && c <= '9') ||
+         (c == '_');
+}
+
+static bool is_keyword(char *s1, char *s2) {
+  return startswith(s1, s2) && !is_alnum(s1[strlen(s2)]);
+}
+
 // split string that p pointed to token, and store them to Vector
 Vector *tokenize(char *p) {
   Vector *vec = new_vector();
@@ -55,6 +66,14 @@ Vector *tokenize(char *p) {
       Token *token = new_token(*p, p);
       vec_push(vec, (void *)token);
       p++;
+      continue;
+    }
+
+    // return
+    if (is_keyword(p, "return")) {
+      Token *token = new_token(TK_RETURN, p);
+      vec_push(vec, (void *)token);
+      p += 6;
       continue;
     }
 

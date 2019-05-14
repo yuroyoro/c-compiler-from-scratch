@@ -19,6 +19,7 @@ void vec_push(Vector *vec, void *elem) ;
 enum {
   TK_NUM = 256, // number
   TK_IDENT,     // identifier
+  TK_RETURN,    // return
   TK_EQ,        // ==
   TK_NE,        // !=
   TK_LE,        // <=
@@ -42,6 +43,7 @@ extern int pos ; // current token position
 enum {
   ND_NUM = 256, // number
   ND_IDENT,     // identifier
+  ND_RETURN,    // return
   ND_EQ,        // ==
   ND_NE,        // !=
   ND_LE,        // <=

@@ -28,7 +28,7 @@ static Node *new_node_ident(char name) {
 }
 /*
   program    = { stmt }
-  stmt       = expr ";"
+  stmt       = [ "return" ] expr (";" | EOF)
   expr       = assign
   assign     = equality [ "=" assign ]
   equality   = relational { ( "==" | "!=" ) relational }
@@ -79,7 +79,14 @@ void program() {
 }
 
 Node *stmt() {
-  Node *node = expr();
+  Node *node;
+  if (consume(TK_RETURN)) {
+    node = malloc(sizeof(Node));
+    node->ty = ND_RETURN;
+    node->lhs = expr();
+  } else {
+    node = expr();
+  }
 
   Token *t = current_token();
   if (!consume(';') && t->ty != TK_EOF) {
