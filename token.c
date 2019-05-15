@@ -30,6 +30,63 @@ static bool is_alnum(char c) {
 static bool is_keyword(char *s1, char *s2) {
   return startswith(s1, s2) && !is_alnum(s1[strlen(s2)]);
 }
+static bool space(Vector *vec, char **p) {
+  if (isspace(**p)) {
+    *p = (char *)*p+1;
+    return true;
+  }
+  return false;
+}
+
+static bool multi_character_opeator(Vector *vec, char **p) {
+  for (int i = 0; symbols[i].name; i++) {
+    char *name = symbols[i].name;
+    if (!startswith(*p, name)) {
+      continue;
+    }
+
+    Token *token = new_token(symbols[i].ty, name);
+    vec_push(vec, (void *)token);
+
+    *p += strlen(name);
+    return true;
+  }
+
+  return false;
+}
+
+static bool single_character_opeator(Vector *vec, char **p) {
+  if (strchr("+-*/()<>;=", **p)) {
+    Token *token = new_token(**p, *p);
+    vec_push(vec, (void *)token);
+    *p = (char *)*p+1;
+    return true;
+  }
+
+  return false;
+}
+
+static bool number(Vector *vec, char **p) {
+  if (isdigit(**p)) {
+    Token *token = new_token(TK_NUM, *p);
+    vec_push(vec, (void *)token);
+    token->val = strtol(*p, &*p, 10);
+    return true;
+  }
+
+  return false;
+}
+
+static bool identifier(Vector *vec, char **p) {
+  if (!isalpha(**p) && **p != '_') {
+    return false;
+  }
+
+  Token *token = new_token(TK_IDENT, *p);
+  vec_push(vec, (void *)token);
+  *p = (char *)*p+1;
+  return true;
+}
 
 // split string that p pointed to token, and store them to Vector
 Vector *tokenize(char *p) {
@@ -37,35 +94,17 @@ Vector *tokenize(char *p) {
 
   while(*p) {
     // skip white spaces
-    if (isspace(*p)) {
-      p++;
+    if (space(vec, &p)) {
       continue;
     }
 
     // multi charcter operator
-    bool found = false;
-    for (int i = 0; symbols[i].name; i++) {
-      char *name = symbols[i].name;
-      if (!startswith(p, name)) {
-        continue;
-      }
-
-      Token *token = new_token(symbols[i].ty, name);
-      vec_push(vec, (void *)token);
-
-      p += strlen(name);
-      found = true;
-      break;
-    }
-    if (found) {
+    if (multi_character_opeator(vec, &p)) {
       continue;
     }
 
     // single charcter operator
-    if (strchr("+-*/()<>;=", *p)) {
-      Token *token = new_token(*p, p);
-      vec_push(vec, (void *)token);
-      p++;
+    if (single_character_opeator(vec, &p)) {
       continue;
     }
 
@@ -78,18 +117,12 @@ Vector *tokenize(char *p) {
     }
 
     // number
-    if (isdigit(*p)) {
-      Token *token = new_token(TK_NUM, p);
-      vec_push(vec, (void *)token);
-      token->val = strtol(p, &p, 10);
+    if (number(vec, &p)) {
       continue;
     }
 
     // identifier
-    if ('a' <= *p && *p <= 'z') {
-      Token *token = new_token(TK_IDENT, p);
-      vec_push(vec, (void *)token);
-      p++;
+    if (identifier(vec, &p)) {
       continue;
     }
 
