@@ -36,6 +36,9 @@ void test_map() {
 
   map_put(map, "foo", (void *)6);
   expect(__LINE__, 6, (long)map_get(map, "foo"));
+
+  map_puti(map, "baz", 99);
+  expect(__LINE__, 99, map_geti(map, "baz"));
 }
 
 void runtest() {

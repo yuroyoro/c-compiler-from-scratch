@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <string.h>
 #include <strings.h>
 
@@ -25,6 +26,8 @@ typedef struct {
 Map *new_map() ;
 void map_put(Map *map, char *key, void *val) ;
 void *map_get(Map *map, char *key) ;
+void map_puti(Map *map, char *key, int i) ;
+int  map_geti(Map *map, char *key) ;
 
 // token.c
 

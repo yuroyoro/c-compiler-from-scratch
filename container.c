@@ -38,3 +38,10 @@ void *map_get(Map *map, char *key) {
   return NULL;
 }
 
+void map_puti(Map *map, char *key, int i) {
+  map_put(map, key, (void *)(intptr_t)i);
+}
+
+int map_geti(Map *map, char *key) {
+  return (intptr_t)map_get(map, key);
+}
