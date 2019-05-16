@@ -43,20 +43,21 @@ static struct {
     {NULL, 0},
 };
 
+
+Map *keywords;
+
+Map *keyword_map() {
+  Map *map = new_map();
+
+  map_puti(map, "return", TK_RETURN);
+
+  return map;
+}
+
 static bool startswith(char *s1, char *s2) {
   return !strncmp(s1, s2, strlen(s2));
 }
 
-static bool is_alnum(char c) {
-  return ('a' <= c && c <= 'z') ||
-         ('A' <= c && c <= 'Z') ||
-         ('0' <= c && c <= '9') ||
-         (c == '_');
-}
-
-static bool is_keyword(char *s1, char *s2) {
-  return startswith(s1, s2) && !is_alnum(s1[strlen(s2)]);
-}
 static bool space(Vector *vec, char **p) {
   if (isspace(**p)) {
     *p = (char *)*p+1;
@@ -108,19 +109,39 @@ static bool number(Vector *vec, char **p) {
 }
 
 static bool identifier(Vector *vec, char **p) {
-  if (!isalpha(**p) && **p != '_') {
+  char *str = *p;
+
+  // first charcter should be alpah or _
+  if (!isalpha(*str) && *str != '_') {
     return false;
   }
 
-  Token *token = new_token(TK_IDENT, strndup(*p, 1));
+  // read input while appah or digit or _
+  int i = 1;
+  while (isalpha(str[i]) || isdigit(str[i]) || str[i] == '_') {
+    i++;
+  }
+
+  char *name = strndup(str, i);
+
+  // check keyword
+  int ty = map_geti(keywords, name);
+  if ((void *)(intptr_t)ty == NULL) {
+    ty = TK_IDENT;
+  }
+
+  Token *token = new_token(ty, name);
+  token->name = name;
+
   vec_push(vec, (void *)token);
-  *p = (char *)*p+1;
+  *p = str + i;
   return true;
 }
 
 // split string that p pointed to token, and store them to Vector
 Vector *tokenize(char *p) {
   Vector *vec = new_vector();
+  keywords = keyword_map();
 
   while(*p) {
     // skip white spaces
@@ -138,21 +159,13 @@ Vector *tokenize(char *p) {
       continue;
     }
 
-    // return
-    if (is_keyword(p, "return")) {
-      Token *token = new_token(TK_RETURN, "return");
-      vec_push(vec, (void *)token);
-      p += 6;
+    // identifier
+    if (identifier(vec, &p)) {
       continue;
     }
 
     // number
     if (number(vec, &p)) {
-      continue;
-    }
-
-    // identifier
-    if (identifier(vec, &p)) {
       continue;
     }
 

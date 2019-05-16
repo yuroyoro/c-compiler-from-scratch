@@ -26,7 +26,7 @@ static void gen_lval(Node *node) {
     error("invalid left value : %s", node->ty);
   }
 
-  int offset = ('z' - node->name + 1) * 8;
+  int offset = (map_geti(vars, node->name)) * 8;
   printf("  mov   rax, rbp\n");
   printf("  sub   rax, %d\n", offset);
   printf("  push  rax\n");
@@ -36,7 +36,6 @@ static void gen_load_mem() {
   printf("  pop   rax\n");
   printf("  mov   rax, [rax]\n");
   printf("  push  rax\n");
-
 }
 
 static void gen_return(Node *node) {
@@ -56,7 +55,7 @@ static void gen_header() {
 static void gen_prologue() {
   printf("  push  rbp\n");
   printf("  mov   rbp, rsp\n");
-  printf("  sub   rsp, %d\n", 26 * 8);
+  printf("  sub   rsp, %d\n", var_cnt * 8);
 }
 
 static void gen_epilogue() {

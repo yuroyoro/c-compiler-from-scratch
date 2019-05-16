@@ -46,8 +46,9 @@ enum {
 };
 
 typedef struct {
-  int ty;       // type of Tokens
-  int val;      // number value if ty == TK_NUM
+  int  ty;      // type of Tokens
+  int  val;     // number value if ty == TK_NUM
+  char *name;   // identifier name
   char *input;  // token string (for error messsage)
 } Token;
 
@@ -73,11 +74,14 @@ typedef struct Node {
   struct Node *lhs; // left hand side
   struct Node *rhs; // right hand side
   int    val;       // number value if ty == ND_NUM
-  char   name;     // identifier name
+  char   *name;     // identifier name
 } Node;
 
 #define CODE_SIZE 100
 extern Node *code[CODE_SIZE];
+
+extern Map *vars ; // variables
+extern int var_cnt ;
 
 void program() ;
 void dump_node(Node *node) ;

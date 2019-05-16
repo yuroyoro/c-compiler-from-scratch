@@ -22,13 +22,17 @@ char *node_string(int ty) {
 }
 
 void dump_node(Node *n) {
-  printf("# node %-10s : ty = %d, val = %d, input = [%c]\n", node_string(n->ty), n->ty, n->val, n->name);
+  printf("# node %-10s : ty = %d, val = %d, input = [%s]\n", node_string(n->ty), n->ty, n->val, n->name);
 }
 
 // Abstract syntax tree
 
 Vector *tokens;
 int pos = 0; // current token position
+
+// variables
+Map *vars ;
+int var_cnt = 0; // variable counter
 
 static Node *new_node(int ty, Node *lhs, Node *rhs) {
   Node *node = malloc(sizeof(Node));
@@ -45,10 +49,17 @@ static Node *new_node_num(int val) {
   return node;
 }
 
-static Node *new_node_ident(char name) {
+static Node *new_node_ident(char *name) {
   Node *node = malloc(sizeof(Node));
   node->ty = ND_IDENT;
   node->name = name;
+
+  // update variables map and counter
+  void *offset = map_get(vars, name);
+  if (offset == NULL) {
+    map_puti(vars, name, var_cnt++);
+  }
+
   return node;
 }
 /*
@@ -97,6 +108,8 @@ static int consume(int ty) {
 
 void program() {
   int i = 0;
+  vars = new_map();
+
   while(current_token()->ty != TK_EOF) {
     code[i++] = stmt();
   }
@@ -213,7 +226,7 @@ static Node *term() {
 
   // identifier
   if (t->ty == TK_IDENT) {
-    return new_node_ident(*next_token()->input);
+    return new_node_ident(next_token()->name);
   }
 
   error("invalid token: %s", t->input);

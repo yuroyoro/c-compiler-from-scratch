@@ -76,4 +76,17 @@ EOF
 
 try 10 "$code"
 
+# step 11: multi letter variable
+try  8 "a=4;aa=2;abc123_def=a*aa; return abc123_def;"
+
+code=$(cat <<EOF
+  foo = 3;
+  bar = 4;
+  baz = foo * bar - 2;
+  return baz;
+EOF
+)
+
+try 10 "$code"
+
 echo OK
