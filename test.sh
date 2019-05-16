@@ -4,6 +4,7 @@ try(){
   expected="$1"
   input="$2"
 
+
   ./9cc "$input" > tmp.s
   gcc -o tmp tmp.s
   ./tmp
@@ -66,5 +67,14 @@ try  1 "a = 3; b = a + 4; (a + 3) / 2 < a + b;"
 # step 10: return statement
 try 42 "return 42;"
 try  4 "a=b=2;return a+b;"
+code=$(cat <<EOF
+  a = 3;
+  b = 4;
+  c = a * b - 2;
+  return c;
+EOF
+)
+
+try 10 "$code"
 
 echo OK
