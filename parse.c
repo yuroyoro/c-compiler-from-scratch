@@ -1,5 +1,30 @@
 #include "9cc.h"
 
+const char *NODE_STRING[] = {
+  STRING(ND_NUM),
+  STRING(ND_IDENT),
+  STRING(ND_RETURN),
+  STRING(ND_EQ),
+  STRING(ND_NE),
+  STRING(ND_LE),
+};
+
+char *node_string(int ty) {
+  char *str;
+  if (ty < 256) {
+    str = malloc(sizeof(char) * 2);
+    sprintf(str, "%c", ty);
+    return str;
+  }
+
+  str = strndup(NODE_STRING[ty - 256], strlen(NODE_STRING[ty - 256]));
+  return str;
+}
+
+void dump_node(Node *n) {
+  printf("# node %-10s : ty = %d, val = %d, input = [%c]\n", node_string(n->ty), n->ty, n->val, n->name);
+}
+
 // Abstract syntax tree
 
 Vector *tokens;

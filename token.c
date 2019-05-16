@@ -1,5 +1,32 @@
 #include "9cc.h"
 
+const char *TOKEN_STRING[] = {
+  STRING(TK_NUM),
+  STRING(TK_IDENT),
+  STRING(TK_RETURN),
+  STRING(TK_EQ),
+  STRING(TK_NE),
+  STRING(TK_LE),
+  STRING(TK_GE),
+  STRING(TK_EOF),
+};
+
+char *token_string(int ty) {
+  char *str;
+  if (ty < 256) {
+    str = malloc(sizeof(char) * 2);
+    sprintf(str, "%c", ty);
+    return str;
+  }
+
+  str = strndup(TOKEN_STRING[ty - 256], strlen(TOKEN_STRING[ty - 256]));
+  return str;
+}
+
+void dump_token(int i, Token *t) {
+  printf("# token %2d : %-10s : ty = %d, val = %d, input = [%s]\n", i, token_string(t->ty), t->ty, t->val, t->input);
+}
+
 static Token *new_token(int ty, char *input) {
   Token *token = malloc(sizeof(Token));
   token->ty = ty;
@@ -57,7 +84,7 @@ static bool multi_character_opeator(Vector *vec, char **p) {
 
 static bool single_character_opeator(Vector *vec, char **p) {
   if (strchr("+-*/()<>;=", **p)) {
-    Token *token = new_token(**p, *p);
+    Token *token = new_token(**p, strndup(*p, 1));
     vec_push(vec, (void *)token);
     *p = (char *)*p+1;
     return true;
@@ -68,9 +95,12 @@ static bool single_character_opeator(Vector *vec, char **p) {
 
 static bool number(Vector *vec, char **p) {
   if (isdigit(**p)) {
-    Token *token = new_token(TK_NUM, *p);
+    char *old_p = *p;
+    int val = strtol(*p, &*p, 10);
+
+    Token *token = new_token(TK_NUM, strndup(old_p, *p - old_p));
     vec_push(vec, (void *)token);
-    token->val = strtol(*p, &*p, 10);
+    token->val = val;
     return true;
   }
 
@@ -82,7 +112,7 @@ static bool identifier(Vector *vec, char **p) {
     return false;
   }
 
-  Token *token = new_token(TK_IDENT, *p);
+  Token *token = new_token(TK_IDENT, strndup(*p, 1));
   vec_push(vec, (void *)token);
   *p = (char *)*p+1;
   return true;
@@ -110,7 +140,7 @@ Vector *tokenize(char *p) {
 
     // return
     if (is_keyword(p, "return")) {
-      Token *token = new_token(TK_RETURN, p);
+      Token *token = new_token(TK_RETURN, "return");
       vec_push(vec, (void *)token);
       p += 6;
       continue;

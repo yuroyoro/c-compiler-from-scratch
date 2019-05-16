@@ -9,8 +9,10 @@ void error(char *fmt, ...) {
   exit(1);
 }
 
+bool debug = false;
+
 int main(int argc, char **argv) {
-  if (argc != 2) {
+  if (argc < 2) {
     fprintf(stderr, "invalid argument count\n");
     return 1;
   }
@@ -20,12 +22,24 @@ int main(int argc, char **argv) {
     return 0;
   }
 
+  int argpos = 1;
+  char *code;
+
+  if (!strncmp(argv[argpos], "-debug", 6)) {
+    debug = true;
+    argpos++;
+  }
+
+  code = argv[argpos];
+
   // tokenize input
-  tokens = tokenize(argv[1]);
+  tokens = tokenize(code);
 
   for(int i = 0; i < tokens->len; i++) {
     Token *t = (Token *)tokens->data[i];
-    printf("# token %2d : ty = %d, val = %d, input = %s\n", i, t->ty, t->val, t->input);
+    if (debug) {
+      dump_token(i, t);
+    }
   }
 
   program();

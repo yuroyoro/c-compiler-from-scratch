@@ -1,9 +1,11 @@
+#define _GNU_SOURCE
 #include <ctype.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <strings.h>
 
 // container.c
 typedef struct {
@@ -25,6 +27,9 @@ void map_put(Map *map, char *key, void *val) ;
 void *map_get(Map *map, char *key) ;
 
 // token.c
+
+#define STRING(var) #var
+
 enum {
   TK_NUM = 256, // number
   TK_IDENT,     // identifier
@@ -44,6 +49,8 @@ typedef struct {
 } Token;
 
 Vector *tokenize(char *p) ;
+void dump_token(int i, Token *token) ;
+char *token_string(int ty) ;
 
 // parse.c
 extern Vector *tokens;
@@ -66,13 +73,18 @@ typedef struct Node {
   char   name;     // identifier name
 } Node;
 
-extern Node *code[100];
+#define CODE_SIZE 100
+extern Node *code[CODE_SIZE];
+
 void program() ;
+void dump_node(Node *node) ;
+char *node_string(int ty) ;
 
 // code_gen.c
 void generate() ;
 
 // main.c
+extern bool debug ;
 void error(char *fmt, ...) ;
 
 // test

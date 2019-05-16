@@ -3,7 +3,6 @@
 static void gen(Node *node) ;
 
 static void gen_num(Node *node) {
-  printf("  # node num %d\n", node->val);
   printf("  push  %d\n", node->val);
 }
 
@@ -58,7 +57,6 @@ static void gen_prologue() {
   printf("  push  rbp\n");
   printf("  mov   rbp, rsp\n");
   printf("  sub   rsp, %d\n", 26 * 8);
-
 }
 
 static void gen_epilogue() {
@@ -69,7 +67,9 @@ static void gen_epilogue() {
 
 // code generator
 static void gen(Node *node) {
-  printf("  # node %d\n", node->ty);
+  if (debug) {
+    dump_node(node);
+  }
 
   if (node->ty == ND_RETURN) {
     gen_return(node);
