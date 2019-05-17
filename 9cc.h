@@ -40,6 +40,7 @@ enum {
   TK_IF,        // if
   TK_ELSE,      // else
   TK_WHILE,     // while
+  TK_FOR,       // for
   TK_EQ,        // ==
   TK_NE,        // !=
   TK_LE,        // <=
@@ -68,7 +69,8 @@ enum {
   ND_IDENT,     // identifier
   ND_RETURN,    // return
   ND_IF,        // if
-  ND_WHILE,     // if
+  ND_WHILE,     // while
+  ND_FOR,       // for
   ND_EQ,        // ==
   ND_NE,        // !=
   ND_LE,        // <=
@@ -77,11 +79,22 @@ enum {
 typedef struct Node {
   int    ty;        // operator or ND_NUM
 
+  /// lhs `binop` rhs
   struct Node *lhs;  // left hand side
   struct Node *rhs;  // right hand side
+
+  // "return" expr
   struct Node *expr; // expression
-  struct Node *cond; // if condition
-  struct Node *els;  // else statement
+
+  // "if" ( cond ) then "else" els
+  // "while" ( cond ) body
+  // "for" ( init; cond; inc ) bdoy
+  struct Node *cond;
+  struct Node *then;
+  struct Node *els;
+  struct Node *body;
+  struct Node *init;
+  struct Node *inc;
 
   int    val;       // number value if ty == ND_NUM
   char   *name;     // identifier name

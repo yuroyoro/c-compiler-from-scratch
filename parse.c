@@ -6,6 +6,7 @@ const char *NODE_STRING[] = {
   STRING(ND_RETURN),
   STRING(ND_IF),
   STRING(ND_WHILE),
+  STRING(ND_FOR),
   STRING(ND_EQ),
   STRING(ND_NE),
   STRING(ND_LE),
@@ -39,6 +40,11 @@ int var_cnt = 0; // variable counter
 static Node *new_node(int ty) {
   Node *node = malloc(sizeof(Node));
   node->ty = ty;
+
+  if (debug) {
+    printf("#   create node %-10s : ty = %d\n", node_string(node->ty), node->ty);
+  }
+
   return node;
 }
 
@@ -74,10 +80,9 @@ static Node *new_node_expr(int ty, Node *expr) {
   return node;
 }
 
-static Node *new_node_cond_expr(int ty, Node *cond, Node *expr) {
+static Node *new_node_cond(int ty, Node *cond) {
   Node *node = new_node(ty);
   node->cond = cond;
-  node->expr = expr;
   return node;
 }
 
@@ -87,6 +92,7 @@ static Node *new_node_cond_expr(int ty, Node *cond, Node *expr) {
              | "return" expr ";"
              | "if" "(" expr ")" stmt [ "else" stmt ]
              | "while" "(" expr ")" stmt
+             | "for" "(" expr? ";" expr? ";" expr? ")" stmt
   expr       = assign
   assign     = equality [ "=" assign ]
   equality   = relational { ( "==" | "!=" ) relational }
@@ -169,9 +175,10 @@ static Node *parse_if() {
   expect('(');
   Node *cond = expr();
   expect(')');
-  Node *expr = stmt();
+  Node *then = stmt();
 
-  Node *node = new_node_cond_expr(ND_IF, cond, expr);
+  Node *node = new_node_cond(ND_IF, cond);
+  node->then = then;
 
   if (consume(TK_ELSE)) {
     node->els = stmt();
@@ -183,9 +190,33 @@ Node *parse_while() {
   expect('(');
   Node *cond = expr();
   expect(')');
-  Node *expr = stmt();
+  Node *body = stmt();
 
-  Node *node = new_node_cond_expr(ND_WHILE, cond, expr);
+  Node *node = new_node_cond(ND_WHILE, cond);
+  node->body = body;
+
+  return node;
+}
+
+Node *parse_for() {
+  Node *node = new_node(ND_FOR);
+  expect('(');
+  if (!consume(';')) {
+    node->init = expr();
+    expect(';');
+  }
+
+  if (!consume(';')) {
+    node->cond = expr();
+    expect(';');
+  }
+
+  if (!consume(')')) {
+    node->inc = expr();
+    expect(')');
+  }
+
+  node->body = stmt();
 
   return node;
 }
@@ -206,6 +237,9 @@ Node *stmt() {
     return parse_while();
   }
 
+  if (consume(TK_FOR)) {
+    return parse_for();
+  }
 
   Node *node = expr();
 
@@ -326,7 +360,7 @@ static Node *term() {
     return new_node_ident(next_token()->name);
   }
 
-  error("invalid token: %s", t->input);
+  error("term : invalid token: %s", t->input);
   exit(1);
 }
 

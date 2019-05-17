@@ -146,6 +146,9 @@ EOF
 
 try 99 "$code"
 
+# for
+try 10 "a = 1; for (i = 0; i < 10; i = i + 1) a = i;"
+try 10 "a = 1; for (; a < 10;) a = a + 1;"
 
 # end test
 echo OK

@@ -69,11 +69,11 @@ static void gen_if(Node *node) {
   printf("  cmp   rax, 0\n");
   if (node->els == NULL) {
     printf("  je    %s\n", endlabel);
-    gen(node->expr);
+    gen(node->then);
   } else {
     char *elslabel = gen_jump_label("else");
     printf("  je    %s\n", elslabel);
-    gen(node->expr);
+    gen(node->then);
     printf("  jmp   %s\n", endlabel);
     printf("%s:\n", elslabel);
     gen(node->els);
@@ -94,12 +94,44 @@ static void gen_while(Node *node) {
   printf("  pop   rax\n");
   printf("  cmp   rax, 0\n");
   printf("  je    %s\n", endlabel);
-  gen(node->expr);
+  // body
+  gen(node->body);
   printf("  jmp   %s\n", beginlabel);
 
   printf("%s:\n", endlabel);
 }
 
+static void gen_for(Node *node) {
+  char *beginlabel = gen_jump_label("begin");
+  char *endlabel = gen_jump_label("end");
+
+  // init expr
+  if (node->init != NULL) {
+    gen(node->init);
+  }
+
+  printf("%s:\n", beginlabel);
+
+  // condition expr
+  if (node->cond != NULL) {
+    gen(node->cond);
+    // check condition result
+    printf("  pop   rax\n");
+    printf("  cmp   rax, 0\n");
+    printf("  je    %s\n", endlabel);
+  }
+
+  // body
+  gen(node->body);
+
+  // inc
+  if (node->inc != NULL) {
+    gen(node->inc);
+  }
+
+  printf("  jmp   %s\n", beginlabel);
+  printf("%s:\n", endlabel);
+}
 
 static bool is_binop(Node *node) {
   return strchr("+-*/<", node->ty) || node->ty == ND_EQ ||
@@ -176,6 +208,11 @@ static void gen(Node *node) {
 
   if (node->ty == ND_WHILE) {
     gen_while(node);
+    return;
+  }
+
+  if (node->ty == ND_FOR) {
+    gen_for(node);
     return;
   }
 
