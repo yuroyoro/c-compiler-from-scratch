@@ -4,15 +4,16 @@ try(){
   expected="$1"
   input="$2"
 
+  echo -n "$input => "
   ./9cc -debug "$input" > tmp.s
   gcc -o tmp tmp.s
   ./tmp
   actual="$?"
 
   if [ "$actual" = "$expected" ]; then
-    echo "$input => $actual"
+    echo "$actual"
   else
-    echo "$input => $expected expected, but got $actual"
+    echo "$expected expected, but got $actual"
     exit 1
   fi
 }
@@ -88,5 +89,21 @@ EOF
 )
 
 try 10 "$code"
+
+# step 12 : control statement
+# if
+try 2 "a = 1; if (a > 0) a = 2; return a"
+try 1 "a = 1; if (a < 0) a = 2; return a"
+
+code=$(cat <<EOF
+  a = 1;
+  if (a > 0)
+    if (a == 1)
+      return 1;
+  return 2;
+EOF
+)
+
+try 1 "$code"
 
 echo OK

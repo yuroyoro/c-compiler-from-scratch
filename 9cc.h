@@ -37,6 +37,7 @@ enum {
   TK_NUM = 256, // number
   TK_IDENT,     // identifier
   TK_RETURN,    // return
+  TK_IF,        // if
   TK_EQ,        // ==
   TK_NE,        // !=
   TK_LE,        // <=
@@ -64,6 +65,7 @@ enum {
   ND_NUM = 256, // number
   ND_IDENT,     // identifier
   ND_RETURN,    // return
+  ND_IF,        // if
   ND_EQ,        // ==
   ND_NE,        // !=
   ND_LE,        // <=
@@ -71,8 +73,12 @@ enum {
 
 typedef struct Node {
   int    ty;        // operator or ND_NUM
-  struct Node *lhs; // left hand side
-  struct Node *rhs; // right hand side
+
+  struct Node *lhs;  // left hand side
+  struct Node *rhs;  // right hand side
+  struct Node *expr; // expression
+  struct Node *cond; // if condition
+
   int    val;       // number value if ty == ND_NUM
   char   *name;     // identifier name
 } Node;

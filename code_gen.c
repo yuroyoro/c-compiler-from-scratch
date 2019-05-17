@@ -39,64 +39,37 @@ static void gen_load_mem() {
 }
 
 static void gen_return(Node *node) {
-  gen(node->lhs);
+  gen(node->expr);
   printf("  pop   rax\n");
   printf("  mov   rsp, rbp\n");
   printf("  pop   rbp\n");
   printf("  ret\n");
 }
 
-static void gen_header() {
-  printf(".intel_syntax noprefix\n");
-  printf(".global main\n");
-  printf("main:\n");
+int label_cnt = 0;
+static char *gen_jump_label(char *name) {
+  int len = strlen(name) + 7;
+  char *str = malloc(sizeof(char) * len);
+  sprintf(str, ".L%s%04d", name, label_cnt++);
+  return str;
 }
 
-static void gen_prologue() {
-  printf("  push  rbp\n");
-  printf("  mov   rbp, rsp\n");
-  printf("  sub   rsp, %d\n", var_cnt * 8);
+static void gen_if(Node *node) {
+  gen(node->cond);
+  char *label = gen_jump_label("if");
+  printf("  pop   rax\n");
+  printf("  cmp   rax, 0\n");
+  printf("  je    %s\n", label);
+  gen(node->expr);
+  printf("%s:\n", label);
 }
 
-static void gen_epilogue() {
-  printf("  mov   rsp, rbp\n");
-  printf("  pop   rbp\n");
-  printf("  ret\n");
+static bool is_binop(Node *node) {
+  return strchr("+-*/<", node->ty) || node->ty == ND_EQ ||
+         node->ty == ND_NE || node->ty == ND_LE;
 }
 
-// code generator
-static void gen(Node *node) {
-  if (debug) {
-    dump_node(node);
-  }
-
-  if (node->ty == ND_RETURN) {
-    gen_return(node);
-    return;
-  }
-
-  if (node->ty == ND_NUM) {
-    gen_num(node);
-    return;
-  }
-
-  if (node->ty == ND_IDENT) {
-    gen_lval(node);
-    gen_load_mem();
-    return;
-  }
-
-  if (node->ty == '=') {
-    gen_lval(node->lhs);
-    gen(node->rhs);
-
-    gen_pop_stack();
-    printf("  mov   [rax], rdi\n");
-    printf("  push  rdi\n");
-
-    return;
-  }
-
+static void gen_bin_op(Node *node) {
   gen(node->lhs);
   gen(node->rhs);
 
@@ -133,6 +106,70 @@ static void gen(Node *node) {
   }
 
   gen_push_stack(node);
+}
+
+static void gen_header() {
+  printf(".intel_syntax noprefix\n");
+  printf(".global main\n");
+  printf("main:\n");
+}
+
+static void gen_prologue() {
+  printf("  push  rbp\n");
+  printf("  mov   rbp, rsp\n");
+  printf("  sub   rsp, %d\n", var_cnt * 8);
+}
+
+static void gen_epilogue() {
+  printf("  mov   rsp, rbp\n");
+  printf("  pop   rbp\n");
+  printf("  ret\n");
+}
+
+// code generator
+static void gen(Node *node) {
+  if (debug) {
+    dump_node(node);
+  }
+
+  if (node->ty == ND_IF) {
+    gen_if(node);
+    return;
+  }
+
+  if (node->ty == ND_RETURN) {
+    gen_return(node);
+    return;
+  }
+
+  if (node->ty == ND_NUM) {
+    gen_num(node);
+    return;
+  }
+
+  if (node->ty == ND_IDENT) {
+    gen_lval(node);
+    gen_load_mem();
+    return;
+  }
+
+  if (node->ty == '=') {
+    gen_lval(node->lhs);
+    gen(node->rhs);
+
+    gen_pop_stack();
+    printf("  mov   [rax], rdi\n");
+    printf("  push  rdi\n");
+
+    return;
+  }
+
+  if (is_binop(node)) {
+    gen_bin_op(node) ;
+    return;
+  }
+
+  error("unknown node type : %d", node->ty);
 }
 
 void generate() {

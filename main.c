@@ -35,9 +35,9 @@ int main(int argc, char **argv) {
   // tokenize input
   tokens = tokenize(code);
 
-  for(int i = 0; i < tokens->len; i++) {
-    Token *t = (Token *)tokens->data[i];
-    if (debug) {
+  if (debug) {
+    for(int i = 0; i < tokens->len; i++) {
+      Token *t = (Token *)tokens->data[i];
       dump_token(i, t);
     }
   }

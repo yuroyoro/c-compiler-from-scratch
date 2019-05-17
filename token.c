@@ -4,6 +4,7 @@ const char *TOKEN_STRING[] = {
   STRING(TK_NUM),
   STRING(TK_IDENT),
   STRING(TK_RETURN),
+  STRING(TK_IF),
   STRING(TK_EQ),
   STRING(TK_NE),
   STRING(TK_LE),
@@ -50,6 +51,7 @@ Map *keyword_map() {
   Map *map = new_map();
 
   map_puti(map, "return", TK_RETURN);
+  map_puti(map, "if",     TK_IF);
 
   return map;
 }
