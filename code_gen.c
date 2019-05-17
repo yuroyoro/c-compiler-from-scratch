@@ -46,8 +46,13 @@ static void gen_return(Node *node) {
   printf("  ret\n");
 }
 
+#define MAX_LABEL_COUNT 10000
 int label_cnt = 0;
 static char *gen_jump_label(char *name) {
+  if (label_cnt >= MAX_LABEL_COUNT) {
+    error("too many jump label\n");
+  }
+
   int len = strlen(name) + 7;
   char *str = malloc(sizeof(char) * len);
   sprintf(str, ".L%s%04d", name, label_cnt++);
@@ -55,13 +60,26 @@ static char *gen_jump_label(char *name) {
 }
 
 static void gen_if(Node *node) {
+  char *endlabel = gen_jump_label("end");
+
+  // condition expr
   gen(node->cond);
-  char *label = gen_jump_label("if");
+  // check condition result
   printf("  pop   rax\n");
   printf("  cmp   rax, 0\n");
-  printf("  je    %s\n", label);
-  gen(node->expr);
-  printf("%s:\n", label);
+  if (node->els == NULL) {
+    printf("  je    %s\n", endlabel);
+    gen(node->expr);
+  } else {
+    char *elslabel = gen_jump_label("else");
+    printf("  je    %s\n", elslabel);
+    gen(node->expr);
+    printf("  jmp   %s\n", endlabel);
+    printf("%s:\n", elslabel);
+    gen(node->els);
+  }
+
+  printf("%s:\n", endlabel);
 }
 
 static bool is_binop(Node *node) {

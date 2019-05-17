@@ -6,6 +6,12 @@ try(){
 
   echo -n "$input => "
   ./9cc -debug "$input" > tmp.s
+  local status=$?
+  if [ $status -ne 0 ]; then
+    echo "compilation failure : $status"
+    exit $status
+  fi
+
   gcc -o tmp tmp.s
   ./tmp
   actual="$?"
@@ -91,6 +97,7 @@ EOF
 try 10 "$code"
 
 # step 12 : control statement
+
 # if
 try 2 "a = 1; if (a > 0) a = 2; return a"
 try 1 "a = 1; if (a < 0) a = 2; return a"
@@ -106,4 +113,20 @@ EOF
 
 try 1 "$code"
 
+# else
+try 2 "a = 1; if (a > 0) a = 2; else a = 3; return a"
+try 3 "a = 1; if (a < 0) a = 2; else a = 3; return a"
+
+code=$(cat <<EOF
+  a = 1;
+  if (a > 0)
+    if (a != 1)
+      return 1;
+    else
+      return 3;
+  return 2;
+EOF
+)
+
+try 3 "$code"
 echo OK

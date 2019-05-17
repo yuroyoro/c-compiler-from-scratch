@@ -169,6 +169,10 @@ Node *stmt() {
     Node *expr = stmt();
 
     node = new_node_cond_expr(ND_IF, cond, expr);
+
+    if (consume(TK_ELSE)) {
+      node->els = stmt();
+    }
   } else {
     node = expr();
 
