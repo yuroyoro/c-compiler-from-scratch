@@ -92,7 +92,7 @@ static bool multi_character_opeator(Vector *vec, char **p) {
 }
 
 static bool single_character_opeator(Vector *vec, char **p) {
-  if (strchr("+-*/()<>;=", **p)) {
+  if (strchr("+-*/()<>;={}", **p)) {
     Token *token = new_token(**p, strndup(*p, 1));
     vec_push(vec, (void *)token);
     *p = (char *)*p+1;

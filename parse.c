@@ -7,6 +7,7 @@ const char *NODE_STRING[] = {
   STRING(ND_IF),
   STRING(ND_WHILE),
   STRING(ND_FOR),
+  STRING(ND_BLOCK),
   STRING(ND_EQ),
   STRING(ND_NE),
   STRING(ND_LE),
@@ -87,20 +88,21 @@ static Node *new_node_cond(int ty, Node *cond) {
 }
 
 /*
-  program    = { stmt }
+  program    = stmt *
   stmt       = expr ";"
+             | "{" stmt* "}"
              | "return" expr ";"
              | "if" "(" expr ")" stmt [ "else" stmt ]
              | "while" "(" expr ")" stmt
              | "for" "(" expr? ";" expr? ";" expr? ")" stmt
   expr       = assign
   assign     = equality [ "=" assign ]
-  equality   = relational { ( "==" | "!=" ) relational }
-  relational = add { ( "<" | "<=" | ">" | ">=" ) add }
-  add        = mul { ( "+" | "-" ) mul }
-  mul        = unary { ( "*" | "/" ) unary }
-  unary      = [ "+" | "-" ] term
-  term       = num | "(" expr ")" term: "(" equality ")"
+  equality   = relational ("==" relational | "!=" relational)*
+  relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+  add        = mul ("+" mul | "-" mul)*
+  mul        = unary ("*" unary | "/" unary)*
+  unary      = ("+" | "-")? term
+  term       = num | "(" expr ")"
 */
 
 Node *code[100];
@@ -221,9 +223,26 @@ Node *parse_for() {
   return node;
 }
 
+Node *parse_block() {
+  Node *node = new_node(ND_BLOCK);
+  node->stmts = new_vector();
+  for (;;) {
+    if (consume('}')) {
+      break;
+    }
+
+    vec_push(node->stmts, stmt());
+  }
+
+  return node;
+}
+
 Node *stmt() {
   trace_parse("stmt");
 
+  if (consume('{')) {
+    return parse_block();
+  }
 
   if (consume(TK_RETURN)) {
     return parse_return();

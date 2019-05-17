@@ -133,6 +133,13 @@ static void gen_for(Node *node) {
   printf("%s:\n", endlabel);
 }
 
+static void gen_block(Node *node) {
+  for (int i = 0; i < node->stmts->len; i++) {
+    gen(node->stmts->data[i]);
+    printf("  pop   rax\n"); // pop stmt result
+  }
+}
+
 static bool is_binop(Node *node) {
   return strchr("+-*/<", node->ty) || node->ty == ND_EQ ||
          node->ty == ND_NE || node->ty == ND_LE;
@@ -199,6 +206,11 @@ static void gen_epilogue() {
 static void gen(Node *node) {
   if (debug) {
     dump_node(node);
+  }
+
+  if (node->ty == ND_BLOCK) {
+    gen_block(node);
+    return;
   }
 
   if (node->ty == ND_IF) {

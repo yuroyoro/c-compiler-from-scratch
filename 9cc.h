@@ -71,6 +71,7 @@ enum {
   ND_IF,        // if
   ND_WHILE,     // while
   ND_FOR,       // for
+  ND_BLOCK,     // block
   ND_EQ,        // ==
   ND_NE,        // !=
   ND_LE,        // <=
@@ -95,6 +96,8 @@ typedef struct Node {
   struct Node *body;
   struct Node *init;
   struct Node *inc;
+
+  Vector *stmts;
 
   int    val;       // number value if ty == ND_NUM
   char   *name;     // identifier name

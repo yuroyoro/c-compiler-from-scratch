@@ -150,5 +150,47 @@ try 99 "$code"
 try 10 "a = 1; for (i = 0; i < 10; i = i + 1) a = i;"
 try 10 "a = 1; for (; a < 10;) a = a + 1;"
 
+# step 13 : statements block
+
+try  2 "{ a = 1; a = a + 1; return a; }"
+
+code=$(cat <<EOF
+  a = 1;
+  if (a != 1) {
+    a = a + 1;
+    return a;
+  } else {
+    a = a + 2;
+    return a;
+  }
+EOF
+)
+
+try 3 "$code"
+
+code=$(cat <<EOF
+  a = 1;
+  b = 10;
+  while (a < 10) {
+    a = a + 1;
+    b = b + 10;
+  }
+  return a + b;
+EOF
+)
+
+try 110  "$code"
+
+code=$(cat <<EOF
+  a = 1;
+  b = 10;
+  for (a = 1; a < 10; a = a + 1) {
+    b = b + 10;
+  }
+  return a + b;
+EOF
+)
+
+try 110  "$code"
 # end test
 echo OK
