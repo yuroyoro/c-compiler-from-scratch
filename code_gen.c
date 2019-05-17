@@ -82,6 +82,25 @@ static void gen_if(Node *node) {
   printf("%s:\n", endlabel);
 }
 
+static void gen_while(Node *node) {
+  char *beginlabel = gen_jump_label("begin");
+  char *endlabel = gen_jump_label("end");
+
+  printf("%s:\n", beginlabel);
+
+  // condition expr
+  gen(node->cond);
+  // check condition result
+  printf("  pop   rax\n");
+  printf("  cmp   rax, 0\n");
+  printf("  je    %s\n", endlabel);
+  gen(node->expr);
+  printf("  jmp   %s\n", beginlabel);
+
+  printf("%s:\n", endlabel);
+}
+
+
 static bool is_binop(Node *node) {
   return strchr("+-*/<", node->ty) || node->ty == ND_EQ ||
          node->ty == ND_NE || node->ty == ND_LE;
@@ -152,6 +171,11 @@ static void gen(Node *node) {
 
   if (node->ty == ND_IF) {
     gen_if(node);
+    return;
+  }
+
+  if (node->ty == ND_WHILE) {
+    gen_while(node);
     return;
   }
 

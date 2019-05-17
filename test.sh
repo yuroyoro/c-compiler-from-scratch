@@ -129,4 +129,23 @@ EOF
 )
 
 try 3 "$code"
+
+# while
+try 10 "a = 1; while (a < 10) a = a + 1; return a"
+
+code=$(cat <<EOF
+  a = 1;
+  while (a < 10)
+    if (a != 9)
+      a = a + 1;
+    else
+      return a = 99;
+  return a;
+EOF
+)
+
+try 99 "$code"
+
+
+# end test
 echo OK

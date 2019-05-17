@@ -5,6 +5,7 @@ const char *NODE_STRING[] = {
   STRING(ND_IDENT),
   STRING(ND_RETURN),
   STRING(ND_IF),
+  STRING(ND_WHILE),
   STRING(ND_EQ),
   STRING(ND_NE),
   STRING(ND_LE),
@@ -79,11 +80,13 @@ static Node *new_node_cond_expr(int ty, Node *cond, Node *expr) {
   node->expr = expr;
   return node;
 }
+
 /*
   program    = { stmt }
   stmt       = expr ";"
              | "return" expr ";"
              | "if" "(" expr ")" stmt [ "else" stmt ]
+             | "while" "(" expr ")" stmt
   expr       = assign
   assign     = equality [ "=" assign ]
   equality   = relational { ( "==" | "!=" ) relational }
@@ -151,35 +154,64 @@ void program() {
   code[i] = NULL;
 }
 
+static Node *parse_return() {
+  Node *node = new_node_expr(ND_RETURN, expr());
+
+  Token *t = current_token();
+  if (!consume(';') && t->ty != TK_EOF) {
+    error("expected ';' : %s", t->input);
+  }
+
+  return node;
+}
+
+static Node *parse_if() {
+  expect('(');
+  Node *cond = expr();
+  expect(')');
+  Node *expr = stmt();
+
+  Node *node = new_node_cond_expr(ND_IF, cond, expr);
+
+  if (consume(TK_ELSE)) {
+    node->els = stmt();
+  }
+  return node;
+}
+
+Node *parse_while() {
+  expect('(');
+  Node *cond = expr();
+  expect(')');
+  Node *expr = stmt();
+
+  Node *node = new_node_cond_expr(ND_WHILE, cond, expr);
+
+  return node;
+}
+
 Node *stmt() {
   trace_parse("stmt");
 
-  Node *node;
 
   if (consume(TK_RETURN)) {
-    node = new_node_expr(ND_RETURN, expr());
-    Token *t = current_token();
-    if (!consume(';') && t->ty != TK_EOF) {
-      error("expected ';' : %s", t->input);
-    }
-  } else if (consume(TK_IF)) {
-    expect('(');
-    Node *cond = expr();
-    expect(')');
-    Node *expr = stmt();
+    return parse_return();
+  }
 
-    node = new_node_cond_expr(ND_IF, cond, expr);
+  if (consume(TK_IF)) {
+    return parse_if();
+  }
 
-    if (consume(TK_ELSE)) {
-      node->els = stmt();
-    }
-  } else {
-    node = expr();
+  if (consume(TK_WHILE)) {
+    return parse_while();
+  }
 
-    Token *t = current_token();
-    if (!consume(';') && t->ty != TK_EOF) {
-      error("expected ';' : %s", t->input);
-    }
+
+  Node *node = expr();
+
+  Token *t = current_token();
+  if (!consume(';') && t->ty != TK_EOF) {
+    error("expected ';' : %s", t->input);
   }
 
   return node;

@@ -39,6 +39,7 @@ enum {
   TK_RETURN,    // return
   TK_IF,        // if
   TK_ELSE,      // else
+  TK_WHILE,     // while
   TK_EQ,        // ==
   TK_NE,        // !=
   TK_LE,        // <=
@@ -67,6 +68,7 @@ enum {
   ND_IDENT,     // identifier
   ND_RETURN,    // return
   ND_IF,        // if
+  ND_WHILE,     // if
   ND_EQ,        // ==
   ND_NE,        // !=
   ND_LE,        // <=
