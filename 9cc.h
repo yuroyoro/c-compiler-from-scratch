@@ -72,6 +72,7 @@ enum {
   ND_WHILE,     // while
   ND_FOR,       // for
   ND_BLOCK,     // block
+  ND_CALL,      // function call
   ND_EQ,        // ==
   ND_NE,        // !=
   ND_LE,        // <=

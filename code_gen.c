@@ -140,6 +140,15 @@ static void gen_block(Node *node) {
   }
 }
 
+static void gen_call(Node *node) {
+  // push argument count
+  printf("  mov   rax, 0\n");
+  // call
+  printf("  call  %s\n", node->name);
+  // push result to stack
+  printf("  push  rax\n");
+}
+
 static bool is_binop(Node *node) {
   return strchr("+-*/<", node->ty) || node->ty == ND_EQ ||
          node->ty == ND_NE || node->ty == ND_LE;
@@ -241,6 +250,11 @@ static void gen(Node *node) {
   if (node->ty == ND_IDENT) {
     gen_lval(node);
     gen_load_mem();
+    return;
+  }
+
+  if (node->ty == ND_CALL) {
+    gen_call(node);
     return;
   }
 

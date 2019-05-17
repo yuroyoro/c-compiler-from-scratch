@@ -3,6 +3,7 @@
 try(){
   expected="$1"
   input="$2"
+  obj="$3"
 
   echo -n "$input => "
   ./9cc -debug "$input" > tmp.s
@@ -12,7 +13,12 @@ try(){
     exit $status
   fi
 
-  gcc -o tmp tmp.s
+  if [ -n "$obj" ]; then
+    gcc -static -o tmp tmp.s "$obj"
+  else
+    gcc -o tmp tmp.s
+  fi
+
   ./tmp
   actual="$?"
 
@@ -192,5 +198,11 @@ EOF
 )
 
 try 110  "$code"
+
+# step 14 : function call
+
+echo 'int foo() { return 99; }' | gcc -xc -c -o tmp-foo.o -
+try 99 "return foo();" tmp-foo.o
+
 # end test
 echo OK

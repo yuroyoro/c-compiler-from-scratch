@@ -8,6 +8,7 @@ const char *NODE_STRING[] = {
   STRING(ND_WHILE),
   STRING(ND_FOR),
   STRING(ND_BLOCK),
+  STRING(ND_CALL),
   STRING(ND_EQ),
   STRING(ND_NE),
   STRING(ND_LE),
@@ -102,7 +103,8 @@ static Node *new_node_cond(int ty, Node *cond) {
   add        = mul ("+" mul | "-" mul)*
   mul        = unary ("*" unary | "/" unary)*
   unary      = ("+" | "-")? term
-  term       = num | "(" expr ")"
+  term       = num | call | (" expr ")"
+  call       = ident [ "()" ]
 */
 
 Node *code[100];
@@ -120,10 +122,6 @@ static Node *unary() ;
 
 static Token *current_token() {
   return (Token *)tokens->data[pos];
-}
-
-static Token *next_token() {
-  return (Token *)tokens->data[pos++];
 }
 
 void trace_parse(char *name) {
@@ -355,6 +353,18 @@ static Node *mul() {
   }
 }
 
+Node *parse_num(Token *t) {
+  return new_node_num(t->val);
+}
+
+Node *parse_call(Token *t) {
+  Node *node = new_node(ND_CALL);
+  node->name = t->name;
+  expect(')');
+
+  return node;
+}
+
 static Node *term() {
   trace_parse("term");
 
@@ -371,12 +381,18 @@ static Node *term() {
 
   // number
   if (t->ty == TK_NUM) {
-    return new_node_num(next_token()->val);
+    Node *node = parse_num(t);
+    pos++;
+    return node;
   }
 
   // identifier
   if (t->ty == TK_IDENT) {
-    return new_node_ident(next_token()->name);
+    pos++;
+    if (consume('(')) {
+      return parse_call(t);
+    }
+    return new_node_ident(t->name);
   }
 
   error("term : invalid token: %s", t->input);
