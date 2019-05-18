@@ -2,17 +2,30 @@
 
 static void gen(Node *node) ;
 
-static void gen_num(Node *node) {
-  printf("  push  %d\n", node->val);
+static int stackpos;
+
+static void gen_pop(char *dst) {
+  printf("  pop   %s\n", dst );
+  stackpos -= 8;
 }
 
-static void gen_pop_stack() {
-  printf("  pop   rdi\n");
-  printf("  pop   rax\n");
+static void gen_push(char *src) {
+  printf("  push  %s\n", src);
+  stackpos += 8;
+}
+
+static void gen_num(Node *node) {
+  printf("  push  %d\n", node->val);
+  stackpos += 8;
+}
+
+static void gen_pop_binop_args() {
+  gen_pop("rdi");
+  gen_pop("rax");
 }
 
 static void gen_push_stack(Node *node) {
-  printf("  push  rax\n");
+  gen_push("rax");
 }
 
 static void gen_cmp(char *insn, Node *node) {
@@ -29,20 +42,20 @@ static void gen_lval(Node *node) {
   int offset = (map_geti(vars, node->name)) * 8;
   printf("  mov   rax, rbp\n");
   printf("  sub   rax, %d\n", offset);
-  printf("  push  rax\n");
+  gen_push("rax");
 }
 
 static void gen_load_mem() {
-  printf("  pop   rax\n");
+  gen_pop("rax");
   printf("  mov   rax, [rax]\n");
-  printf("  push  rax\n");
+  gen_push("rax");
 }
 
 static void gen_return(Node *node) {
   gen(node->expr);
-  printf("  pop   rax\n");
+  gen_pop("rax");
   printf("  mov   rsp, rbp\n");
-  printf("  pop   rbp\n");
+  gen_pop("rbp");
   printf("  ret\n");
 }
 
@@ -65,7 +78,7 @@ static void gen_if(Node *node) {
   // condition expr
   gen(node->cond);
   // check condition result
-  printf("  pop   rax\n");
+  gen_pop("rax");
   printf("  cmp   rax, 0\n");
   if (node->els == NULL) {
     printf("  je    %s\n", endlabel);
@@ -91,7 +104,7 @@ static void gen_while(Node *node) {
   // condition expr
   gen(node->cond);
   // check condition result
-  printf("  pop   rax\n");
+  gen_pop("rax");
   printf("  cmp   rax, 0\n");
   printf("  je    %s\n", endlabel);
   // body
@@ -116,7 +129,7 @@ static void gen_for(Node *node) {
   if (node->cond != NULL) {
     gen(node->cond);
     // check condition result
-    printf("  pop   rax\n");
+    gen_pop("rax");
     printf("  cmp   rax, 0\n");
     printf("  je    %s\n", endlabel);
   }
@@ -136,17 +149,47 @@ static void gen_for(Node *node) {
 static void gen_block(Node *node) {
   for (int i = 0; i < node->stmts->len; i++) {
     gen(node->stmts->data[i]);
-    printf("  pop   rax\n"); // pop stmt result
+    gen_pop("rax"); // pop stmt result
   }
 }
 
+char *FUNC_CALL_ARG_REGS[] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9",
+};
+
 static void gen_call(Node *node) {
+  int argn = 0;
+  // evaluate arguments
+  if (node->args != NULL) {
+    argn = node->args->len;
+    for (int i = 0; i < node->args->len; i++) {
+      Node *arg = (Node *)node->args->data[i];
+      // evaluate
+      printf("  # arg %d : %-10s : ty = %d, val = %d, name = [%s]\n", i, node_string(arg->ty), arg->ty, arg->val, arg->name);
+      gen(arg);
+      // pop result and set register
+      gen_pop(FUNC_CALL_ARG_REGS[i]);
+    }
+  }
   // push argument count
-  printf("  mov   rax, 0\n");
+  printf("  mov   rax, %d\n", argn);
+
+  // adjust stackp position to 16byte aligned
+  bool padding = stackpos % 16;
+  if (padding) {
+    printf("  sub rsp, 8\n");
+    stackpos += 8;
+  }
+
   // call
   printf("  call  %s\n", node->name);
+
+  if (padding) {
+    printf("  add rsp, 8\n");
+    stackpos -= 8;
+  }
+
   // push result to stack
-  printf("  push  rax\n");
+  gen_push("rax");
 }
 
 static bool is_binop(Node *node) {
@@ -154,11 +197,21 @@ static bool is_binop(Node *node) {
          node->ty == ND_NE || node->ty == ND_LE;
 }
 
+static void gen_assign(Node *node) {
+  gen_lval(node->lhs);
+  gen(node->rhs);
+
+  gen_pop_binop_args();
+  printf("  mov   [rax], rdi\n");
+  gen_push("rdi");
+}
+
+
 static void gen_bin_op(Node *node) {
   gen(node->lhs);
   gen(node->rhs);
 
-  gen_pop_stack();
+  gen_pop_binop_args();
 
   switch (node->ty) {
     case '=':
@@ -200,14 +253,14 @@ static void gen_header() {
 }
 
 static void gen_prologue() {
-  printf("  push  rbp\n");
+  gen_push("rbp");
   printf("  mov   rbp, rsp\n");
   printf("  sub   rsp, %d\n", var_cnt * 8);
 }
 
 static void gen_epilogue() {
   printf("  mov   rsp, rbp\n");
-  printf("  pop   rbp\n");
+  gen_pop("rbp");
   printf("  ret\n");
 }
 
@@ -259,13 +312,7 @@ static void gen(Node *node) {
   }
 
   if (node->ty == '=') {
-    gen_lval(node->lhs);
-    gen(node->rhs);
-
-    gen_pop_stack();
-    printf("  mov   [rax], rdi\n");
-    printf("  push  rdi\n");
-
+    gen_assign(node);
     return;
   }
 
@@ -278,6 +325,7 @@ static void gen(Node *node) {
 }
 
 void generate() {
+  stackpos = 8;
   // print assembler headers
   gen_header();
 
@@ -286,7 +334,7 @@ void generate() {
     gen(code[i]);
 
     // pop result of last evaluated expression
-    printf("  pop   rax\n");
+    gen_pop("rax");
   }
 
   gen_epilogue();

@@ -99,6 +99,7 @@ typedef struct Node {
   struct Node *inc;
 
   Vector *stmts;
+  Vector *args;
 
   int    val;       // number value if ty == ND_NUM
   char   *name;     // identifier name

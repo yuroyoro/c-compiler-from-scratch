@@ -204,5 +204,8 @@ try 110  "$code"
 echo 'int foo() { return 99; }' | gcc -xc -c -o tmp-foo.o -
 try 99 "return foo();" tmp-foo.o
 
+echo 'int add(int x, int y) { return x+y; }' | gcc -xc -c -o tmp-add.o -
+try 14 "a =10; return add(a, 4);" tmp-add.o
+
 # end test
 echo OK

@@ -74,7 +74,7 @@ static bool space(Vector *vec, char **p) {
   return false;
 }
 
-static bool multi_character_opeator(Vector *vec, char **p) {
+static bool multi_character_symbol(Vector *vec, char **p) {
   for (int i = 0; symbols[i].name; i++) {
     char *name = symbols[i].name;
     if (!startswith(*p, name)) {
@@ -91,8 +91,8 @@ static bool multi_character_opeator(Vector *vec, char **p) {
   return false;
 }
 
-static bool single_character_opeator(Vector *vec, char **p) {
-  if (strchr("+-*/()<>;={}", **p)) {
+static bool single_character_symbol(Vector *vec, char **p) {
+  if (strchr("+-*/()<>;={},", **p)) {
     Token *token = new_token(**p, strndup(*p, 1));
     vec_push(vec, (void *)token);
     *p = (char *)*p+1;
@@ -157,13 +157,13 @@ Vector *tokenize(char *p) {
       continue;
     }
 
-    // multi charcter operator
-    if (multi_character_opeator(vec, &p)) {
+    // multi charcter symbol
+    if (multi_character_symbol(vec, &p)) {
       continue;
     }
 
-    // single charcter operator
-    if (single_character_opeator(vec, &p)) {
+    // single charcter symbol
+    if (single_character_symbol(vec, &p)) {
       continue;
     }
 

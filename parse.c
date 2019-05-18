@@ -104,7 +104,7 @@ static Node *new_node_cond(int ty, Node *cond) {
   mul        = unary ("*" unary | "/" unary)*
   unary      = ("+" | "-")? term
   term       = num | call | (" expr ")"
-  call       = ident [ "()" ]
+  call       = ident [ "(" (expr ",")* ")" ]
 */
 
 Node *code[100];
@@ -360,7 +360,19 @@ Node *parse_num(Token *t) {
 Node *parse_call(Token *t) {
   Node *node = new_node(ND_CALL);
   node->name = t->name;
+
+  if (consume(')')) {
+    return node;
+  }
+
+  Vector *args = new_vector();
+  vec_push(args, expr());
+  while(consume(',')) {
+    vec_push(args, expr());
+  }
+
   expect(')');
+  node->args = args;
 
   return node;
 }
