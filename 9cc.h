@@ -67,7 +67,6 @@ extern int pos ; // current token position
 
 enum {
   ND_NUM = 256, // number
-  ND_IDENT,     // identifier
   ND_RETURN,    // return
   ND_IF,        // if
   ND_WHILE,     // while
@@ -77,6 +76,8 @@ enum {
   ND_STMT,      // statement
   ND_EXPR,      // expr
   ND_FUNC,      // function definition
+  ND_VAR_DEF,   // variable definition
+  ND_VAR_REF,   // variable reference
   ND_EQ,        // ==
   ND_NE,        // !=
   ND_LE,        // <=

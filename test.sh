@@ -46,14 +46,14 @@ try(){
 # try  4 "(3+5)/2"
 
 # step 5 : unary operator
-try 30 "main() { return -3*+5*-2; } "
+try 30 "int main() { return -3*+5*-2; } "
 # try  3 "-3 * -1"
-try  5 "main() { return (-6+-4)/-2; }"
+try  5 "int main() { return (-6+-4)/-2; }"
 # try 20 "(-6+-4)*-2"
 
 # step 6 : equality and relational operator
-try  8 "main() { return (2 == 2) + (2 == 2) + (4 >= 3) + (3 >= 3) + (4 > 3) + (3 <= 4) + (3 <= 3) + (3 < 4) ; }"
-try  0 "main() { return (2 != 2) + (2 >= 3) + (3 > 3) + (2 > 3) + (3 <= 2) + (3 < 3) + (3 < 2); }"
+try  8 "int main() { return (2 == 2) + (2 == 2) + (4 >= 3) + (3 >= 3) + (4 > 3) + (3 <= 4) + (3 <= 3) + (3 < 4) ; }"
+try  0 "int main() { return (2 != 2) + (2 >= 3) + (3 > 3) + (2 > 3) + (3 <= 2) + (3 < 3) + (3 < 2); }"
 
 # step 9: variable, assign and statements
 # try  4 "a=b=2;a+b;"
@@ -63,7 +63,8 @@ try  0 "main() { return (2 != 2) + (2 >= 3) + (3 > 3) + (2 > 3) + (3 <= 2) + (3 
 # try 42 "return 42;"
 # try  4 "a=b=2;return a+b;"
 code=$(cat <<EOF
-main() {
+int main() {
+  int a; int b; int c;
   a = 3;
   b = 4;
   c = a * b - 2;
@@ -78,7 +79,8 @@ try 10 "$code"
 # try  8 "a=4;aa=2;abc123_def=a*aa; return abc123_def;"
 
 code=$(cat <<EOF
-main() {
+int main() {
+  int foo; int bar; int baz;
   foo = 3;
   bar = 4;
   baz = foo * bar - 2;
@@ -92,12 +94,12 @@ try 10 "$code"
 # step 12 : control statement
 
 # if
-try 2 "main() { a = 1; if (a > 0) a = 2; return a; }"
-try 1 "main() { a = 1; if (a < 0) a = 2; return a; }"
+try 2 "int main() { int a ;a = 1; if (a > 0) a = 2; return a; }"
+try 1 "int main() { int a ;a = 1; if (a < 0) a = 2; return a; }"
 
 code=$(cat <<EOF
-main() {
-  a = 1;
+int main() {
+  int a ;a = 1;
   if (a > 0)
     if (a == 1)
       return 1;
@@ -109,12 +111,12 @@ EOF
 try 1 "$code"
 
 # else
-try 2 "main() {a = 1; if (a > 0) a = 2; else a = 3; return a; }"
-try 3 "main() {a = 1; if (a < 0) a = 2; else a = 3; return a; }"
+try 2 "int main() {int a ;a = 1; if (a > 0) a = 2; else a = 3; return a; }"
+try 3 "int main() {int a ;a = 1; if (a < 0) a = 2; else a = 3; return a; }"
 
 code=$(cat <<EOF
-main() {
-  a = 1;
+int main() {
+  int a ;a = 1;
   if (a > 0)
     if (a != 1)
       return 1;
@@ -128,11 +130,11 @@ EOF
 try 3 "$code"
 
 # while
-try 10 "main() {a = 1; while (a < 10) a = a + 1; return a; }"
+try 10 "int main() {int a ;a = 1; while (a < 10) a = a + 1; return a; }"
 
 code=$(cat <<EOF
-main() {
-  a = 1;
+int main() {
+  int a ;a = 1;
   while (a < 10)
     if (a != 9)
       a = a + 1;
@@ -146,15 +148,16 @@ EOF
 try 99 "$code"
 
 # for
-try  9 "main() {a = 1; for (i = 0; i < 10; i = i + 1) a = i; return a;}"
-try 10 "main() {a = 1; for (; a < 10;) a = a + 1; return a;}"
+try  9 "int main() {int a ; int i; a = 1; for (i = 0; i < 10; i = i + 1) a = i; return a;}"
+try 10 "int main() {int a ; int i; a = 1; for (; a < 10;) a = a + 1; return a;}"
 
 # step 13 : statements block
 
-try  2 "main() { a = 1; a = a + 1; return a; }"
+try  2 "int main() { int a; a = 1; a = a + 1; return a; }"
 
 code=$(cat <<EOF
-main() {
+int main() {
+  int a;
   a = 1;
   if (a != 1) {
     a = a + 1;
@@ -170,7 +173,8 @@ EOF
 try 3 "$code"
 
 code=$(cat <<EOF
-main() {
+int main() {
+  int a; int b;
   a = 1;
   b = 10;
   while (a < 10) {
@@ -185,7 +189,8 @@ EOF
 try 110  "$code"
 
 code=$(cat <<EOF
-main() {
+int main() {
+  int a; int b;
   a = 1;
   b = 10;
   for (a = 1; a < 10; a = a + 1) {
@@ -201,21 +206,22 @@ try 110  "$code"
 # step 14 : function call
 
 echo 'foo() { return 99; }' | gcc -xc -c -o tmp-foo.o -
-try 99 "main() { return foo(); }" tmp-foo.o
+try 99 "int main() { return foo(); }" tmp-foo.o
 
 echo 'add(x, y) { return x+y; }' | gcc -xc -c -o tmp-add.o -
-try 14 "main() { a =10; return add(a, 4); }" tmp-add.o
+try 14 "int main() { int a;a =10; return add(a, 4); }" tmp-add.o
 
 echo 'foo() { return 99; }' | gcc -xc -c -o tmp-foo.o -
 
 # step 15 : function definition
 
 code=$(cat <<EOF
-foo(a, b) {
+int foo(int a, int b) {
   return a+b;
 }
 
-main() {
+int main() {
+  int a;
   a = 1;
   return foo(a, 2);
 }
@@ -225,11 +231,12 @@ EOF
 try 3  "$code"
 
 code=$(cat <<EOF
-foo(a, b) { return a + b; }
-bar(n) { return baz(n) + 1; }
-baz(n) { return n * 2; }
+int foo(int a, int b) { return a + b; }
+int bar(int n) { return baz(n) + 1; }
+int baz(int n) { return n * 2; }
 
-main() {
+int main() {
+  int a;
   a = 1;
   return foo(a, bar(2));
 }

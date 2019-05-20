@@ -2,7 +2,6 @@
 
 const char *NODE_STRING[] = {
   STRING(ND_NUM),
-  STRING(ND_IDENT),
   STRING(ND_RETURN),
   STRING(ND_IF),
   STRING(ND_WHILE),
@@ -12,6 +11,8 @@ const char *NODE_STRING[] = {
   STRING(ND_STMT),
   STRING(ND_EXPR),
   STRING(ND_FUNC),
+  STRING(ND_VAR_DEF),
+  STRING(ND_VAR_REF),
   STRING(ND_EQ),
   STRING(ND_NE),
   STRING(ND_LE),
@@ -34,6 +35,8 @@ void dump_node(char *msg, Node *n) {
     printf("  # %-10s : node %-10s : ty = %d, val = %d, name = [%s]\n", msg, node_string(n->ty), n->ty, n->val, n->name);
   }
 }
+
+#define INT_TYPE "int"
 
 // Abstract syntax tree
 
@@ -80,6 +83,22 @@ static Node *new_expr(Node *expr) {
   return node;
 }
 
+static Node *new_node_var_def(char *typename, char *name ) {
+  Node *node = new_node(ND_VAR_DEF);
+
+  if (strncmp(typename, INT_TYPE, strlen(INT_TYPE))) {
+    error("  invalid variable type : expected '%s', but got '%s' : pos = %d\n", INT_TYPE, typename, pos);
+  }
+  node->name = name;
+
+  scope->stacksize += 8;
+  scope->var_cnt++;
+  node->offset = scope->stacksize;
+  map_puti(scope->lvars, name, node->offset);
+
+  return node;
+};
+
 static Node *new_node_bin_op(int ty, Node *lhs, Node *rhs) {
   Node *node = new_node(ty);
   node->lhs = new_expr(lhs);
@@ -93,25 +112,21 @@ static Node *new_node_num(int val) {
   return node;
 }
 
-static Node *new_node_ident(char *name) {
-  Node *node = new_node(ND_IDENT);
+static Node *new_node_var_ref(char *name) {
+  Node *node = new_node(ND_VAR_REF);
   node->name = name;
 
-  printf("  # new_node_ident : name = %s\n", name);
+  if (debug) {
+    printf("  # new_node_var_ref : name = %s\n", name);
+  }
 
   // update variables map and counter
   void *offset = map_get(scope->lvars, name);
   if (offset == NULL) {
-    scope->stacksize += 8;
-    scope->var_cnt++;
-    node->offset = scope->stacksize;
-    map_puti(scope->lvars, name, node->offset);
-
-    printf("  # new_node_ident new var: name = %s\n", name);
-  } else {
-    printf("  # new_node_ident new ref: name = %s\n", name);
-    node->offset = (intptr_t)offset;
+    error("undefined variable '%s' : pos = %d", name, pos);
   }
+
+  node->offset = (intptr_t)offset;
 
   return node;
 }
@@ -130,7 +145,7 @@ static Node *new_node_cond(int ty, Node *cond) {
 
 /*
   program    = func *
-  func       = ident "("  (ident ",")* ")" block
+  func       = "int" ident "("  (define_var ",")* ")" block
   block      = "{" stmt* "}"
   stmt       = block
              | expr ";"
@@ -138,6 +153,8 @@ static Node *new_node_cond(int ty, Node *cond) {
              | "if" "(" expr ")" stmt [ "else" stmt ]
              | "while" "(" expr ")" stmt
              | "for" "(" expr? ";" expr? ";" expr? ")" stmt
+             | define_var ";"
+  define"var = "int" ident
   expr       = assign
   assign     = equality [ "=" assign ]
   equality   = relational ("==" relational | "!=" relational)*
@@ -165,9 +182,13 @@ static Node *mul() ;
 static Node *term() ;
 static Node *unary() ;
 
+static Token *token_at(int offset) {
+  assert(tokens->data[pos+offset] != NULL);
+  return (Token *)tokens->data[pos+offset];
+}
+
 static Token *current_token() {
-  assert(tokens->data[pos] != NULL);
-  return (Token *)tokens->data[pos];
+  return token_at(0);
 }
 
 void trace_parse(char *name) {
@@ -238,7 +259,7 @@ static Node *parse_if() {
   return node;
 }
 
-Node *parse_while() {
+static Node *parse_while() {
   trace_parse("while");
 
   expect('(');
@@ -252,7 +273,7 @@ Node *parse_while() {
   return node;
 }
 
-Node *parse_for() {
+static Node *parse_for() {
   trace_parse("for");
 
   Node *node = new_node(ND_FOR);
@@ -277,7 +298,7 @@ Node *parse_for() {
   return node;
 }
 
-Node *parse_block() {
+static Node *parse_block() {
   trace_parse("block");
 
   Node *node = new_node(ND_BLOCK);
@@ -296,6 +317,12 @@ Node *parse_block() {
 static Node *function() {
   trace_parse("function");
 
+  // check type defition
+  Token *func_type = expect(TK_IDENT);
+  if (strncmp(func_type->name, INT_TYPE, strlen(INT_TYPE))) {
+    error("  invalid function type : expected '%s', but got '%s' : pos = %d\n", INT_TYPE, func_type->name, pos);
+  }
+
   Token *t = expect(TK_IDENT);
 
   Node *node = new_node(ND_FUNC);
@@ -310,13 +337,13 @@ static Node *function() {
   if (!consume(')')) {
     // args
     Vector *args = new_vector();
-    t = expect(TK_IDENT);
-    vec_push(args, new_node_ident(t->name) );
 
-    while(consume(',')) {
-      t = expect(TK_IDENT);
-      vec_push(args, new_node_ident(t->name) );
-    }
+    do {
+      Token *t_type  = expect(TK_IDENT);
+      Token *t_ident = expect(TK_IDENT);
+      vec_push(args, new_node_var_def(t_type->name, t_ident->name) );
+    } while(consume(','));
+
     node->args = args;
 
     expect(')');
@@ -357,6 +384,15 @@ static Node *stmt() {
     return new_stmt(parse_for());
   }
 
+  // variable defition
+  if (current_token()->ty == TK_IDENT && token_at(1)->ty == TK_IDENT) {
+    Token *t_type  = expect(TK_IDENT);
+    Token *t_ident = expect(TK_IDENT);
+    expect(';');
+
+    return new_stmt(new_node_var_def(t_type->name, t_ident->name));
+  }
+
   Node *node = expr();
 
   Token *t = current_token();
@@ -367,13 +403,13 @@ static Node *stmt() {
   return new_stmt(node);
 }
 
-Node *expr() {
+static Node *expr() {
   trace_parse("expr");
 
   return new_expr(assign());
 }
 
-Node *assign() {
+static Node *assign() {
   trace_parse("assign");
 
   Node *node = equality();
@@ -387,7 +423,7 @@ Node *assign() {
   return node;
 }
 
-Node *equality() {
+static Node *equality() {
   trace_parse("equality");
 
   Node *node = relational();
@@ -455,11 +491,11 @@ static Node *mul() {
   }
 }
 
-Node *parse_num(Token *t) {
+static Node *parse_num(Token *t) {
   return new_node_num(t->val);
 }
 
-Node *parse_call(Token *t) {
+static Node *parse_call(Token *t) {
   Node *node = new_node(ND_CALL);
   node->name = t->name;
 
@@ -506,7 +542,7 @@ static Node *term() {
     if (consume('(')) {
       return parse_call(t);
     }
-    return new_node_ident(t->name);
+    return new_node_var_ref(t->name);
   }
 
   error("term : invalid token: %s : pos = %d", t->input, pos);

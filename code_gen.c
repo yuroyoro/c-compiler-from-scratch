@@ -26,7 +26,7 @@ static void gen_cmp(char *insn, Node *node) {
 static void gen_lval(Node *node) {
   dump_node("gen_lval", node);
 
-  if (node->ty != TK_IDENT) {
+  if (node->ty != ND_VAR_REF) {
     error("invalid left value : %s", node->ty);
   }
 
@@ -39,7 +39,7 @@ static void gen_load_mem() {
 }
 
 static void gen_local_var(Node *node) {
-  assert(node->ty = ND_IDENT);
+  assert(node->ty = ND_VAR_REF);
 
   gen_lval(node);
   gen_load_mem();
@@ -305,7 +305,8 @@ static void gen_func(Node *node) {
     for (int i = 0; i < node->args->len; i++) {
       Node *arg = node->args->data[i];
       printf("  # gen_func : arg %d : name = [%s], reg = %s\n", i, arg->name, FUNC_CALL_ARG_REGS[i]);
-      gen_lval(arg);
+      printf("  mov   rax, rbp\n");
+      printf("  sub   rax, %d\n", arg->offset);
       printf("  mov   [rax], %s\n", FUNC_CALL_ARG_REGS[i]);
     }
   }
@@ -328,7 +329,7 @@ static void gen_expr(Node *node) {
       gen_num(expr);
       return; // num is directory pushed to stack;
 
-    case ND_IDENT:
+    case ND_VAR_REF:
       gen_local_var(expr);
       break;
 
@@ -396,7 +397,12 @@ static void gen_stmt(Node *node) {
     return;
   }
 
-  error("code_gen : gen_stmt : invalid node : %d\n", body->ty);
+  if (body->ty == ND_VAR_DEF) {
+    // noop
+    return;
+  }
+
+  error("code_gen : gen_stmt : invalid node : %s\n", node_string(body->ty));
 }
 
 
