@@ -291,7 +291,7 @@ static void gen_prologue(Node *node) {
 static void gen_epilogue(Node *node) {
   printf("  mov   rsp, rbp\n");
   printf("  pop   rbp\n");
-  printf("  ret\n");
+  printf("  ret\n\n");
 }
 
 static void gen_func(Node *node) {
@@ -303,7 +303,10 @@ static void gen_func(Node *node) {
   // all args shold be identifier
   if (node->args != NULL) {
     for (int i = 0; i < node->args->len; i++) {
-      gen_local_var(node->args->data[i]);
+      Node *arg = node->args->data[i];
+      printf("  # gen_func : arg %d : name = [%s], reg = %s\n", i, arg->name, FUNC_CALL_ARG_REGS[i]);
+      gen_lval(arg);
+      printf("  mov   [rax], %s\n", FUNC_CALL_ARG_REGS[i]);
     }
   }
 

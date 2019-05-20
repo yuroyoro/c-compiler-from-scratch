@@ -208,5 +208,34 @@ try 14 "main() { a =10; return add(a, 4); }" tmp-add.o
 
 echo 'foo() { return 99; }' | gcc -xc -c -o tmp-foo.o -
 
+# step 15 : function definition
+
+code=$(cat <<EOF
+foo(a, b) {
+  return a+b;
+}
+
+main() {
+  a = 1;
+  return foo(a, 2);
+}
+EOF
+)
+
+try 3  "$code"
+
+code=$(cat <<EOF
+foo(a, b) { return a + b; }
+bar(n) { return baz(n) + 1; }
+baz(n) { return n * 2; }
+
+main() {
+  a = 1;
+  return foo(a, bar(2));
+}
+EOF
+)
+
+try 6  "$code"
 # end test
 echo OK

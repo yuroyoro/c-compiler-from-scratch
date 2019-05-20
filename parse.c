@@ -46,7 +46,6 @@ Scope *scope ; // TODO: use stack for scope chain
 static Scope *new_scope() {
   Scope *scope = malloc(sizeof(Scope));
   scope->lvars = new_map();
-  scope->var_cnt = 0;
   scope->stacksize = 0;
   return scope;
 }
@@ -98,13 +97,19 @@ static Node *new_node_ident(char *name) {
   Node *node = new_node(ND_IDENT);
   node->name = name;
 
+  printf("  # new_node_ident : name = %s\n", name);
+
   // update variables map and counter
   void *offset = map_get(scope->lvars, name);
   if (offset == NULL) {
     scope->stacksize += 8;
+    scope->var_cnt++;
     node->offset = scope->stacksize;
     map_puti(scope->lvars, name, node->offset);
+
+    printf("  # new_node_ident new var: name = %s\n", name);
   } else {
+    printf("  # new_node_ident new ref: name = %s\n", name);
     node->offset = (intptr_t)offset;
   }
 
@@ -161,6 +166,7 @@ static Node *term() ;
 static Node *unary() ;
 
 static Token *current_token() {
+  assert(tokens->data[pos] != NULL);
   return (Token *)tokens->data[pos];
 }
 
@@ -187,8 +193,9 @@ static int consume(int ty) {
 
 static Token *expect(int c) {
   Token *t = current_token();
+
   if (!consume(c)) {
-    error("expected '%c' : %s : pos = %d", t->input, pos);
+    error("expected '%c' : %s : pos = %d", c, t->input, pos);
   }
   return t;
 }
@@ -294,7 +301,7 @@ static Node *function() {
   Node *node = new_node(ND_FUNC);
   node->name = t->name;
   node->scope = new_scope();
-  scope = node-> scope;
+  scope = node->scope;
 
   // TODO: check duplicate function definition
 
@@ -307,10 +314,11 @@ static Node *function() {
     vec_push(args, new_node_ident(t->name) );
 
     while(consume(',')) {
-      t = current_token();
+      t = expect(TK_IDENT);
       vec_push(args, new_node_ident(t->name) );
     }
     node->args = args;
+
     expect(')');
   }
 
