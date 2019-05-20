@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <strings.h>
+#include <assert.h>
 
 // container.c
 typedef struct {
@@ -73,10 +74,21 @@ enum {
   ND_FOR,       // for
   ND_BLOCK,     // block
   ND_CALL,      // function call
+  ND_STMT,      // statement
+  ND_EXPR,      // expr
+  ND_FUNC,      // function definition
   ND_EQ,        // ==
   ND_NE,        // !=
   ND_LE,        // <=
 };
+
+typedef struct Scope {
+  Map *lvars ;    // local variables
+  int var_cnt ;   // local variables count
+  int stacksize ; // stack size
+
+  // TODO: scope chain
+} Scope;
 
 typedef struct Node {
   int    ty;        // operator or ND_NUM
@@ -101,18 +113,17 @@ typedef struct Node {
   Vector *stmts;
   Vector *args;
 
+  Scope *scope;
+
   int    val;       // number value if ty == ND_NUM
   char   *name;     // identifier name
+  int    offset;    // offset from stack pointer
 } Node;
 
-#define CODE_SIZE 100
-extern Node *code[CODE_SIZE];
-
-extern Map *vars ; // variables
-extern int var_cnt ;
+extern Vector *code;
 
 void program() ;
-void dump_node(Node *node) ;
+void dump_node(char *msg, Node *node) ;
 char *node_string(int ty) ;
 
 // code_gen.c

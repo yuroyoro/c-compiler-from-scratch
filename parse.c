@@ -9,6 +9,9 @@ const char *NODE_STRING[] = {
   STRING(ND_FOR),
   STRING(ND_BLOCK),
   STRING(ND_CALL),
+  STRING(ND_STMT),
+  STRING(ND_EXPR),
+  STRING(ND_FUNC),
   STRING(ND_EQ),
   STRING(ND_NE),
   STRING(ND_LE),
@@ -26,8 +29,10 @@ char *node_string(int ty) {
   return str;
 }
 
-void dump_node(Node *n) {
-  printf("# node %-10s : ty = %d, val = %d, name = [%s]\n", node_string(n->ty), n->ty, n->val, n->name);
+void dump_node(char *msg, Node *n) {
+  if (debug) {
+    printf("  # %-10s : node %-10s : ty = %d, val = %d, name = [%s]\n", msg, node_string(n->ty), n->ty, n->val, n->name);
+  }
 }
 
 // Abstract syntax tree
@@ -35,9 +40,16 @@ void dump_node(Node *n) {
 Vector *tokens;
 int pos = 0; // current token position
 
-// variables
-Map *vars ;
-int var_cnt = 0; // variable counter
+// scope
+Scope *scope ; // TODO: use stack for scope chain
+
+static Scope *new_scope() {
+  Scope *scope = malloc(sizeof(Scope));
+  scope->lvars = new_map();
+  scope->var_cnt = 0;
+  scope->stacksize = 0;
+  return scope;
+}
 
 static Node *new_node(int ty) {
   Node *node = malloc(sizeof(Node));
@@ -50,10 +62,29 @@ static Node *new_node(int ty) {
   return node;
 }
 
+static Node *new_stmt(Node *body) {
+  Node *node = new_node(ND_STMT);
+  node->body = body;
+
+  return node;
+}
+
+static Node *new_expr(Node *expr) {
+  Node *node = new_node(ND_EXPR);
+  Node *e = expr;
+  while (e->ty == ND_EXPR) {
+    e = e->expr;
+  }
+
+  node->expr = e;
+
+  return node;
+}
+
 static Node *new_node_bin_op(int ty, Node *lhs, Node *rhs) {
   Node *node = new_node(ty);
-  node->lhs = lhs;
-  node->rhs = rhs;
+  node->lhs = new_expr(lhs);
+  node->rhs = new_expr(rhs);
   return node;
 }
 
@@ -68,9 +99,13 @@ static Node *new_node_ident(char *name) {
   node->name = name;
 
   // update variables map and counter
-  void *offset = map_get(vars, name);
+  void *offset = map_get(scope->lvars, name);
   if (offset == NULL) {
-    map_puti(vars, name, var_cnt++);
+    scope->stacksize += 8;
+    node->offset = scope->stacksize;
+    map_puti(scope->lvars, name, node->offset);
+  } else {
+    node->offset = (intptr_t)offset;
   }
 
   return node;
@@ -89,9 +124,11 @@ static Node *new_node_cond(int ty, Node *cond) {
 }
 
 /*
-  program    = stmt *
-  stmt       = expr ";"
-             | "{" stmt* "}"
+  program    = func *
+  func       = ident "("  (ident ",")* ")" block
+  block      = "{" stmt* "}"
+  stmt       = block
+             | expr ";"
              | "return" expr ";"
              | "if" "(" expr ")" stmt [ "else" stmt ]
              | "while" "(" expr ")" stmt
@@ -103,13 +140,16 @@ static Node *new_node_cond(int ty, Node *cond) {
   add        = mul ("+" mul | "-" mul)*
   mul        = unary ("*" unary | "/" unary)*
   unary      = ("+" | "-")? term
-  term       = num | call | (" expr ")"
-  call       = ident [ "(" (expr ",")* ")" ]
+  term       = num | ident | call | (" expr ")"
+  call       = ident "(" (expr ",")* ")"
+  ident      = A-Za-z0-9_
 */
 
-Node *code[100];
+Vector *code ;
 
 // paser functions
+static Node *block() ;
+static Node *function() ;
 static Node *stmt() ;
 static Node *expr() ;
 static Node *assign() ;
@@ -137,27 +177,30 @@ static int consume(int ty) {
     return 0;
   }
 
+  if (debug) {
+    printf("# parse : consume %s : pos = %d\n", token_string(ty), pos);
+  }
+
   pos++;
   return 1;
 }
 
-static void expect(char c) {
+static Token *expect(int c) {
+  Token *t = current_token();
   if (!consume(c)) {
-    Token *t = current_token();
-    error("expected '%c' : %s", t->input);
+    error("expected '%c' : %s : pos = %d", t->input, pos);
   }
+  return t;
 }
 
 void program() {
   trace_parse("program");
 
-  int i = 0;
-  vars = new_map();
+  code = new_vector();
 
   while(current_token()->ty != TK_EOF) {
-    code[i++] = stmt();
+    vec_push(code, function());
   }
-  code[i] = NULL;
 }
 
 static Node *parse_return() {
@@ -165,13 +208,15 @@ static Node *parse_return() {
 
   Token *t = current_token();
   if (!consume(';') && t->ty != TK_EOF) {
-    error("expected ';' : %s", t->input);
+    error("expected ';' : %s : pos = %d", t->input, pos);
   }
 
   return node;
 }
 
 static Node *parse_if() {
+  trace_parse("if");
+
   expect('(');
   Node *cond = expr();
   expect(')');
@@ -187,6 +232,8 @@ static Node *parse_if() {
 }
 
 Node *parse_while() {
+  trace_parse("while");
+
   expect('(');
   Node *cond = expr();
   expect(')');
@@ -199,6 +246,8 @@ Node *parse_while() {
 }
 
 Node *parse_for() {
+  trace_parse("for");
+
   Node *node = new_node(ND_FOR);
   expect('(');
   if (!consume(';')) {
@@ -222,6 +271,8 @@ Node *parse_for() {
 }
 
 Node *parse_block() {
+  trace_parse("block");
+
   Node *node = new_node(ND_BLOCK);
   node->stmts = new_vector();
   for (;;) {
@@ -235,43 +286,83 @@ Node *parse_block() {
   return node;
 }
 
-Node *stmt() {
+static Node *function() {
+  trace_parse("function");
+
+  Token *t = expect(TK_IDENT);
+
+  Node *node = new_node(ND_FUNC);
+  node->name = t->name;
+  node->scope = new_scope();
+  scope = node-> scope;
+
+  // TODO: check duplicate function definition
+
+  expect('(');
+
+  if (!consume(')')) {
+    // args
+    Vector *args = new_vector();
+    t = expect(TK_IDENT);
+    vec_push(args, new_node_ident(t->name) );
+
+    while(consume(',')) {
+      t = current_token();
+      vec_push(args, new_node_ident(t->name) );
+    }
+    node->args = args;
+    expect(')');
+  }
+
+  node->body = block();
+
+  return node;
+}
+
+static Node *block() {
+  trace_parse("block");
+
+  expect('{');
+  return parse_block();
+}
+
+static Node *stmt() {
   trace_parse("stmt");
 
   if (consume('{')) {
-    return parse_block();
+    return new_stmt(parse_block());
   }
 
   if (consume(TK_RETURN)) {
-    return parse_return();
+    return new_stmt(parse_return());
   }
 
   if (consume(TK_IF)) {
-    return parse_if();
+    return new_stmt(parse_if());
   }
 
   if (consume(TK_WHILE)) {
-    return parse_while();
+    return new_stmt(parse_while());
   }
 
   if (consume(TK_FOR)) {
-    return parse_for();
+    return new_stmt(parse_for());
   }
 
   Node *node = expr();
 
   Token *t = current_token();
   if (!consume(';') && t->ty != TK_EOF) {
-    error("expected ';' : %s", t->input);
+    error("expected ';' : %s : pos = %d", t->input, pos);
   }
 
-  return node;
+  return new_stmt(node);
 }
 
 Node *expr() {
   trace_parse("expr");
 
-  return assign();
+  return new_expr(assign());
 }
 
 Node *assign() {
@@ -279,7 +370,10 @@ Node *assign() {
 
   Node *node = equality();
   if (consume('=')) {
-    node = new_node_bin_op('=', node, assign());
+    Node *assign_node = new_node('=');
+    assign_node->lhs = node;
+    assign_node->rhs = new_expr(assign());
+    node = assign_node;
   }
 
   return node;
@@ -384,9 +478,9 @@ static Node *term() {
 
   // if next token is '(', "(" add ")" is expected
   if (consume('(')) {
-    Node *node = equality();
+    Node *node = expr();
     if (!consume(')')) {
-      error("expected ')' : %s", t->input);
+      error("expected ')' : %s : pos = %d", t->input, pos);
     }
     return node;
   }
@@ -407,7 +501,7 @@ static Node *term() {
     return new_node_ident(t->name);
   }
 
-  error("term : invalid token: %s", t->input);
+  error("term : invalid token: %s : pos = %d", t->input, pos);
   exit(1);
 }
 

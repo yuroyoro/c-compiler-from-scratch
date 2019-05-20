@@ -1,61 +1,57 @@
 #include "9cc.h"
 
-static void gen(Node *node) ;
-
-static int stackpos;
-
-static void gen_pop(char *dst) {
-  printf("  pop   %s\n", dst );
-  stackpos -= 8;
+static int roundup(int x, int align) {
+  return (x + align - 1) & ~(align - 1);
 }
 
-static void gen_push(char *src) {
-  printf("  push  %s\n", src);
-  stackpos += 8;
-}
+static void gen_expr(Node *node) ;
+static void gen_stmt(Node *node) ;
 
 static void gen_num(Node *node) {
   printf("  push  %d\n", node->val);
-  stackpos += 8;
 }
 
 static void gen_pop_binop_args() {
-  gen_pop("rdi");
-  gen_pop("rax");
-}
-
-static void gen_push_stack(Node *node) {
-  gen_push("rax");
+  printf("  pop   rdi\n");
+  printf("  pop   rax\n");
 }
 
 static void gen_cmp(char *insn, Node *node) {
+  dump_node("gen_cmp", node);
   printf("  cmp   rax, rdi\n");
   printf("  %s    al\n", insn);
   printf("  movzb rax, al\n");
 }
 
 static void gen_lval(Node *node) {
+  dump_node("gen_lval", node);
+
   if (node->ty != TK_IDENT) {
     error("invalid left value : %s", node->ty);
   }
 
-  int offset = (map_geti(vars, node->name)) * 8;
   printf("  mov   rax, rbp\n");
-  printf("  sub   rax, %d\n", offset);
-  gen_push("rax");
+  printf("  sub   rax, %d\n", node->offset);
 }
 
 static void gen_load_mem() {
-  gen_pop("rax");
   printf("  mov   rax, [rax]\n");
-  gen_push("rax");
+}
+
+static void gen_local_var(Node *node) {
+  assert(node->ty = ND_IDENT);
+
+  gen_lval(node);
+  gen_load_mem();
 }
 
 static void gen_return(Node *node) {
-  gen(node->expr);
-  gen_pop("rax");
+  dump_node("gen_return", node);
+  gen_expr(node->expr);
+
+  printf("  pop   rax\n");
   printf("  mov   rsp, rbp\n");
-  gen_pop("rbp");
+  printf("  pop   rbp\n");
   printf("  ret\n");
 }
 
@@ -73,73 +69,104 @@ static char *gen_jump_label(char *name) {
 }
 
 static void gen_if(Node *node) {
+  dump_node("gen_if", node);
   char *endlabel = gen_jump_label("end");
 
   // condition expr
-  gen(node->cond);
+  dump_node("gen_if : cond", node->cond);
+  gen_expr(node->cond);
+
   // check condition result
-  gen_pop("rax");
+  printf("  pop   rax\n");
   printf("  cmp   rax, 0\n");
   if (node->els == NULL) {
     printf("  je    %s\n", endlabel);
-    gen(node->then);
+
+    dump_node("gen_if : then", node->then);
+    gen_stmt(node->then);
   } else {
     char *elslabel = gen_jump_label("else");
     printf("  je    %s\n", elslabel);
-    gen(node->then);
+
+    dump_node("gen_if : then", node->then);
+    gen_stmt(node->then);
     printf("  jmp   %s\n", endlabel);
     printf("%s:\n", elslabel);
-    gen(node->els);
+
+    dump_node("gen_if : els", node->els);
+    gen_stmt(node->els);
   }
 
   printf("%s:\n", endlabel);
 }
 
 static void gen_while(Node *node) {
+  dump_node("gen_while", node);
+
   char *beginlabel = gen_jump_label("begin");
   char *endlabel = gen_jump_label("end");
 
   printf("%s:\n", beginlabel);
 
   // condition expr
-  gen(node->cond);
+  dump_node("gen_while : cond", node->cond);
+  gen_expr(node->cond);
+
   // check condition result
-  gen_pop("rax");
+  printf("  pop   rax\n");
   printf("  cmp   rax, 0\n");
   printf("  je    %s\n", endlabel);
+
   // body
-  gen(node->body);
+  dump_node("gen_while : body", node->cond);
+  gen_stmt(node->body);
   printf("  jmp   %s\n", beginlabel);
 
   printf("%s:\n", endlabel);
 }
 
 static void gen_for(Node *node) {
+  dump_node("gen_for", node->cond);
+
   char *beginlabel = gen_jump_label("begin");
   char *endlabel = gen_jump_label("end");
 
   // init expr
   if (node->init != NULL) {
-    gen(node->init);
+    dump_node("gen_for : init", node->init);
+    gen_expr(node->init);
+
+    // discard init result
+    printf("  # discard for init result\n");
+    printf("  pop   rax\n");
   }
 
   printf("%s:\n", beginlabel);
 
   // condition expr
   if (node->cond != NULL) {
-    gen(node->cond);
+    dump_node("gen_for : cond", node->cond);
+
+    gen_expr(node->cond);
+
     // check condition result
-    gen_pop("rax");
+    printf("  pop   rax\n");
     printf("  cmp   rax, 0\n");
     printf("  je    %s\n", endlabel);
   }
 
   // body
-  gen(node->body);
+  dump_node("gen_for : body", node->body);
+  gen_stmt(node->body);
 
   // inc
   if (node->inc != NULL) {
-    gen(node->inc);
+    dump_node("gen_for : inc", node->inc);
+    gen_expr(node->inc);
+
+    // discard inc result
+    printf("  # discard for inc result\n");
+    printf("  pop   rax\n");
   }
 
   printf("  jmp   %s\n", beginlabel);
@@ -147,9 +174,12 @@ static void gen_for(Node *node) {
 }
 
 static void gen_block(Node *node) {
+  dump_node("gen_block", node);
+
   for (int i = 0; i < node->stmts->len; i++) {
-    gen(node->stmts->data[i]);
-    gen_pop("rax"); // pop stmt result
+    Node *stmt = node->stmts->data[i];
+    printf("  # gen_block : stmt %d : %-10s : ty = %d, val = %d, name = [%s]\n", i, node_string(stmt->ty), stmt->ty, stmt->val, stmt->name);
+    gen_stmt(stmt);
   }
 }
 
@@ -157,6 +187,8 @@ char *FUNC_CALL_ARG_REGS[] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9",
 };
 
 static void gen_call(Node *node) {
+  dump_node("gen_call", node);
+
   int argn = 0;
   // evaluate arguments
   if (node->args != NULL) {
@@ -164,32 +196,17 @@ static void gen_call(Node *node) {
     for (int i = 0; i < node->args->len; i++) {
       Node *arg = (Node *)node->args->data[i];
       // evaluate
-      printf("  # arg %d : %-10s : ty = %d, val = %d, name = [%s]\n", i, node_string(arg->ty), arg->ty, arg->val, arg->name);
-      gen(arg);
+      printf("  # gen_call : arg %d : %-10s : ty = %d, val = %d, name = [%s]\n", i, node_string(arg->ty), arg->ty, arg->val, arg->name);
+      gen_expr(arg);
       // pop result and set register
-      gen_pop(FUNC_CALL_ARG_REGS[i]);
+      printf("  pop  %s\n", FUNC_CALL_ARG_REGS[i]);
     }
   }
   // push argument count
   printf("  mov   rax, %d\n", argn);
 
-  // adjust stackp position to 16byte aligned
-  bool padding = stackpos % 16;
-  if (padding) {
-    printf("  sub rsp, 8\n");
-    stackpos += 8;
-  }
-
   // call
   printf("  call  %s\n", node->name);
-
-  if (padding) {
-    printf("  add rsp, 8\n");
-    stackpos -= 8;
-  }
-
-  // push result to stack
-  gen_push("rax");
 }
 
 static bool is_binop(Node *node) {
@@ -198,18 +215,27 @@ static bool is_binop(Node *node) {
 }
 
 static void gen_assign(Node *node) {
+  dump_node("gen_assign", node);
+
+  dump_node("gen_assign : lhs", node->lhs);
   gen_lval(node->lhs);
-  gen(node->rhs);
+  printf("  push  rax\n"); // push lhs addrees to stack
+
+  dump_node("gen_assign : rhs", node->rhs);
+  gen_expr(node->rhs);
 
   gen_pop_binop_args();
   printf("  mov   [rax], rdi\n");
-  gen_push("rdi");
+  printf("  mov   rax, rdi\n");
 }
 
-
 static void gen_bin_op(Node *node) {
-  gen(node->lhs);
-  gen(node->rhs);
+  dump_node("gen_bin_op", node);
+
+  dump_node("gen_bin_op : lhs", node->lhs);
+  gen_expr(node->lhs);
+  dump_node("gen_bin_op : rhs", node->rhs);
+  gen_expr(node->rhs);
 
   gen_pop_binop_args();
 
@@ -242,100 +268,140 @@ static void gen_bin_op(Node *node) {
       printf("  idiv  rdi\n");
       break;
   }
-
-  gen_push_stack(node);
 }
 
 static void gen_header() {
-  printf(".intel_syntax noprefix\n");
-  printf(".global main\n");
-  printf("main:\n");
+  printf(".intel_syntax noprefix\n\n");
 }
 
-static void gen_prologue() {
-  gen_push("rbp");
+static void gen_func_header(char *name) {
+  printf(".global %s\n ", name);
+  printf("%s:\n", name);
+}
+
+static void gen_prologue(Node *node) {
+  printf("  push  rbp\n");
   printf("  mov   rbp, rsp\n");
-  printf("  sub   rsp, %d\n", var_cnt * 8);
+  // align stack pointer to 16byte
+  printf("  sub   rsp, %d\n", roundup(node->scope->stacksize, 16));
+
+  // TODO: save r11..r15 register to stack
 }
 
-static void gen_epilogue() {
+static void gen_epilogue(Node *node) {
   printf("  mov   rsp, rbp\n");
-  gen_pop("rbp");
+  printf("  pop   rbp\n");
   printf("  ret\n");
 }
 
-// code generator
-static void gen(Node *node) {
-  if (debug) {
-    dump_node(node);
+static void gen_func(Node *node) {
+  assert(node->ty == ND_FUNC);
+
+  gen_func_header(node->name);
+  gen_prologue(node);
+
+  // all args shold be identifier
+  if (node->args != NULL) {
+    for (int i = 0; i < node->args->len; i++) {
+      gen_local_var(node->args->data[i]);
+    }
   }
 
-  if (node->ty == ND_BLOCK) {
-    gen_block(node);
-    return;
-  }
+  // body
+  gen_block(node->body);
 
-  if (node->ty == ND_IF) {
-    gen_if(node);
-    return;
-  }
-
-  if (node->ty == ND_WHILE) {
-    gen_while(node);
-    return;
-  }
-
-  if (node->ty == ND_FOR) {
-    gen_for(node);
-    return;
-  }
-
-  if (node->ty == ND_RETURN) {
-    gen_return(node);
-    return;
-  }
-
-  if (node->ty == ND_NUM) {
-    gen_num(node);
-    return;
-  }
-
-  if (node->ty == ND_IDENT) {
-    gen_lval(node);
-    gen_load_mem();
-    return;
-  }
-
-  if (node->ty == ND_CALL) {
-    gen_call(node);
-    return;
-  }
-
-  if (node->ty == '=') {
-    gen_assign(node);
-    return;
-  }
-
-  if (is_binop(node)) {
-    gen_bin_op(node) ;
-    return;
-  }
-
-  error("unknown node type : %d", node->ty);
+  gen_epilogue(node);
 }
 
+static void gen_expr(Node *node) {
+  dump_node("gen_expr", node);
+
+  assert(node->ty == ND_EXPR);
+
+  Node *expr = node->expr;
+
+  switch(expr->ty) {
+    case ND_NUM :
+      gen_num(expr);
+      return; // num is directory pushed to stack;
+
+    case ND_IDENT:
+      gen_local_var(expr);
+      break;
+
+    case ND_CALL:
+      gen_call(expr);
+      break;
+
+    case '=' :
+      gen_assign(expr);
+      break;
+
+    default:
+      if (is_binop(expr)) {
+        gen_bin_op(expr) ;
+        break;
+      }
+
+      error("code_gen : gen_expr : invalid node : %s\n", expr->ty);
+  }
+
+  // push expression result
+  printf("  # push expr result : %s\n", node_string(expr->ty));
+  printf("  push  rax\n");
+}
+
+static void gen_stmt(Node *node) {
+  dump_node("gen_stmt", node);
+
+  assert(node->ty == ND_STMT);
+  assert(node->body != NULL);
+
+  dump_node("gen_stmt : body", node->body);
+  Node *body = node->body;
+
+  if (body->ty == ND_BLOCK) {
+    gen_block(body);
+    return;
+  }
+
+  if (body->ty == ND_IF) {
+    gen_if(body);
+    return;
+  }
+
+  if (body->ty == ND_WHILE) {
+    gen_while(body);
+    return;
+  }
+
+  if (body->ty == ND_FOR) {
+    gen_for(body);
+    return;
+  }
+
+  if (body->ty == ND_RETURN) {
+    gen_return(body);
+    return;
+  }
+
+  if (body->ty == ND_EXPR) {
+    gen_expr(body);
+    // discard expr result
+    printf("  # discard expr result\n");
+    printf("  pop   rax\n");
+    return;
+  }
+
+  error("code_gen : gen_stmt : invalid node : %d\n", body->ty);
+}
+
+
 void generate() {
-  stackpos = 8;
   // print assembler headers
   gen_header();
 
-  gen_prologue();
-  for (int i = 0; code[i]; i++) {
-    gen(code[i]);
-
-    // pop result of last evaluated expression
-    gen_pop("rax");
+  for (int i = 0; i < code->len; i++) {
+    gen_func(code->data[i]);
   }
-
-  gen_epilogue();
 }
