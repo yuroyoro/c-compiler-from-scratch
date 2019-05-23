@@ -18,21 +18,21 @@ const char *NODE_STRING[] = {
   STRING(ND_LE),
 };
 
-char *node_string(int ty) {
+char *node_string(int op) {
   char *str;
-  if (ty < 256) {
+  if (op < 256) {
     str = malloc(sizeof(char) * 2);
-    sprintf(str, "%c", ty);
+    sprintf(str, "%c", op);
     return str;
   }
 
-  str = strndup(NODE_STRING[ty - 256], strlen(NODE_STRING[ty - 256]));
+  str = strndup(NODE_STRING[op - 256], strlen(NODE_STRING[op - 256]));
   return str;
 }
 
 void dump_node(char *msg, Node *n) {
   if (debug) {
-    printf("  # %-10s : node %-10s : ty = %d, val = %d, name = [%s]\n", msg, node_string(n->ty), n->ty, n->val, n->name);
+    printf("  # %-10s : node %-10s : op = %d, val = %d, name = [%s]\n", msg, node_string(n->op), n->op, n->val, n->name);
   }
 }
 
@@ -53,12 +53,12 @@ static Scope *new_scope() {
   return scope;
 }
 
-static Node *new_node(int ty) {
+static Node *new_node(int op) {
   Node *node = malloc(sizeof(Node));
-  node->ty = ty;
+  node->op = op;
 
   if (debug) {
-    printf("#   create node %-10s : ty = %d\n", node_string(node->ty), node->ty);
+    printf("#   create node %-10s : op = %d\n", node_string(node->op), node->op);
   }
 
   return node;
@@ -74,7 +74,7 @@ static Node *new_stmt(Node *body) {
 static Node *new_expr(Node *expr) {
   Node *node = new_node(ND_EXPR);
   Node *e = expr;
-  while (e->ty == ND_EXPR) {
+  while (e->op == ND_EXPR) {
     e = e->expr;
   }
 
@@ -99,8 +99,8 @@ static Node *new_node_var_def(char *typename, char *name ) {
   return node;
 };
 
-static Node *new_node_bin_op(int ty, Node *lhs, Node *rhs) {
-  Node *node = new_node(ty);
+static Node *new_node_bin_op(int op, Node *lhs, Node *rhs) {
+  Node *node = new_node(op);
   node->lhs = new_expr(lhs);
   node->rhs = new_expr(rhs);
   return node;
@@ -131,14 +131,14 @@ static Node *new_node_var_ref(char *name) {
   return node;
 }
 
-static Node *new_node_expr(int ty, Node *expr) {
-  Node *node = new_node(ty);
+static Node *new_node_expr(int op, Node *expr) {
+  Node *node = new_node(op);
   node->expr = expr;
   return node;
 }
 
-static Node *new_node_cond(int ty, Node *cond) {
-  Node *node = new_node(ty);
+static Node *new_node_cond(int op, Node *cond) {
+  Node *node = new_node(op);
   node->cond = cond;
   return node;
 }

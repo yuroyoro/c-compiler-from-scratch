@@ -26,8 +26,8 @@ static void gen_cmp(char *insn, Node *node) {
 static void gen_lval(Node *node) {
   dump_node("gen_lval", node);
 
-  if (node->ty != ND_VAR_REF) {
-    error("invalid left value : %s", node->ty);
+  if (node->op != ND_VAR_REF) {
+    error("invalid left value : %s", node->op);
   }
 
   printf("  mov   rax, rbp\n");
@@ -39,7 +39,7 @@ static void gen_load_mem() {
 }
 
 static void gen_local_var(Node *node) {
-  assert(node->ty = ND_VAR_REF);
+  assert(node->op = ND_VAR_REF);
 
   gen_lval(node);
   gen_load_mem();
@@ -178,7 +178,7 @@ static void gen_block(Node *node) {
 
   for (int i = 0; i < node->stmts->len; i++) {
     Node *stmt = node->stmts->data[i];
-    printf("  # gen_block : stmt %d : %-10s : ty = %d, val = %d, name = [%s]\n", i, node_string(stmt->ty), stmt->ty, stmt->val, stmt->name);
+    printf("  # gen_block : stmt %d : %-10s : op = %d, val = %d, name = [%s]\n", i, node_string(stmt->op), stmt->op, stmt->val, stmt->name);
     gen_stmt(stmt);
   }
 }
@@ -196,7 +196,7 @@ static void gen_call(Node *node) {
     for (int i = 0; i < node->args->len; i++) {
       Node *arg = (Node *)node->args->data[i];
       // evaluate
-      printf("  # gen_call : arg %d : %-10s : ty = %d, val = %d, name = [%s]\n", i, node_string(arg->ty), arg->ty, arg->val, arg->name);
+      printf("  # gen_call : arg %d : %-10s : op = %d, val = %d, name = [%s]\n", i, node_string(arg->op), arg->op, arg->val, arg->name);
       gen_expr(arg);
       // pop result and set register
       printf("  pop  %s\n", FUNC_CALL_ARG_REGS[i]);
@@ -210,8 +210,8 @@ static void gen_call(Node *node) {
 }
 
 static bool is_binop(Node *node) {
-  return strchr("+-*/<", node->ty) || node->ty == ND_EQ ||
-         node->ty == ND_NE || node->ty == ND_LE;
+  return strchr("+-*/<", node->op) || node->op == ND_EQ ||
+         node->op == ND_NE || node->op == ND_LE;
 }
 
 static void gen_assign(Node *node) {
@@ -239,7 +239,7 @@ static void gen_bin_op(Node *node) {
 
   gen_pop_binop_args();
 
-  switch (node->ty) {
+  switch (node->op) {
     case '=':
       break;
     case ND_EQ:
@@ -295,7 +295,7 @@ static void gen_epilogue(Node *node) {
 }
 
 static void gen_func(Node *node) {
-  assert(node->ty == ND_FUNC);
+  assert(node->op == ND_FUNC);
 
   gen_func_header(node->name);
   gen_prologue(node);
@@ -320,11 +320,11 @@ static void gen_func(Node *node) {
 static void gen_expr(Node *node) {
   dump_node("gen_expr", node);
 
-  assert(node->ty == ND_EXPR);
+  assert(node->op == ND_EXPR);
 
   Node *expr = node->expr;
 
-  switch(expr->ty) {
+  switch(expr->op) {
     case ND_NUM :
       gen_num(expr);
       return; // num is directory pushed to stack;
@@ -347,49 +347,49 @@ static void gen_expr(Node *node) {
         break;
       }
 
-      error("code_gen : gen_expr : invalid node : %s\n", expr->ty);
+      error("code_gen : gen_expr : invalid node : %s\n", expr->op);
   }
 
   // push expression result
-  printf("  # push expr result : %s\n", node_string(expr->ty));
+  printf("  # push expr result : %s\n", node_string(expr->op));
   printf("  push  rax\n");
 }
 
 static void gen_stmt(Node *node) {
   dump_node("gen_stmt", node);
 
-  assert(node->ty == ND_STMT);
+  assert(node->op == ND_STMT);
   assert(node->body != NULL);
 
   dump_node("gen_stmt : body", node->body);
   Node *body = node->body;
 
-  if (body->ty == ND_BLOCK) {
+  if (body->op == ND_BLOCK) {
     gen_block(body);
     return;
   }
 
-  if (body->ty == ND_IF) {
+  if (body->op == ND_IF) {
     gen_if(body);
     return;
   }
 
-  if (body->ty == ND_WHILE) {
+  if (body->op == ND_WHILE) {
     gen_while(body);
     return;
   }
 
-  if (body->ty == ND_FOR) {
+  if (body->op == ND_FOR) {
     gen_for(body);
     return;
   }
 
-  if (body->ty == ND_RETURN) {
+  if (body->op == ND_RETURN) {
     gen_return(body);
     return;
   }
 
-  if (body->ty == ND_EXPR) {
+  if (body->op == ND_EXPR) {
     gen_expr(body);
     // discard expr result
     printf("  # discard expr result\n");
@@ -397,12 +397,12 @@ static void gen_stmt(Node *node) {
     return;
   }
 
-  if (body->ty == ND_VAR_DEF) {
+  if (body->op == ND_VAR_DEF) {
     // noop
     return;
   }
 
-  error("code_gen : gen_stmt : invalid node : %s\n", node_string(body->ty));
+  error("code_gen : gen_stmt : invalid node : %s\n", node_string(body->op));
 }
 
 

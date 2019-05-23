@@ -92,7 +92,7 @@ typedef struct Scope {
 } Scope;
 
 typedef struct Node {
-  int    ty;        // operator or ND_NUM
+  int    op;        // operator or ND_NUM
 
   /// lhs `binop` rhs
   struct Node *lhs;  // left hand side
