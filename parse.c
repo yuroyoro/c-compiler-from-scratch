@@ -53,6 +53,14 @@ static Scope *new_scope() {
   return scope;
 }
 
+static Type *new_type(int ty, Type *ptr) {
+  Type *t = malloc(sizeof(Type));
+  t->ty = ty;
+  t->ptrof = ptr;
+
+  return t;
+}
+
 static Node *new_node(int op) {
   Node *node = malloc(sizeof(Node));
   node->op = op;
@@ -83,18 +91,16 @@ static Node *new_expr(Node *expr) {
   return node;
 }
 
-static Node *new_node_var_def(char *typename, char *name ) {
+static Node *new_node_var_def(Type *ty, char *name ) {
   Node *node = new_node(ND_VAR_DEF);
 
-  if (strncmp(typename, INT_TYPE, strlen(INT_TYPE))) {
-    error("  invalid variable type : expected '%s', but got '%s' : pos = %d\n", INT_TYPE, typename, pos);
-  }
   node->name = name;
+  node->ty   = ty;
 
   scope->stacksize += 8;
   scope->var_cnt++;
   node->offset = scope->stacksize;
-  map_puti(scope->lvars, name, node->offset);
+  map_put(scope->lvars, name, node);
 
   return node;
 };
@@ -121,12 +127,13 @@ static Node *new_node_var_ref(char *name) {
   }
 
   // update variables map and counter
-  void *offset = map_get(scope->lvars, name);
-  if (offset == NULL) {
+  Node *tynode = (Node *)map_get(scope->lvars, name);
+  if (tynode == NULL) {
     error("undefined variable '%s' : pos = %d", name, pos);
   }
 
-  node->offset = (intptr_t)offset;
+  node->offset = tynode->offset;
+  node->ty     = tynode->ty;
 
   return node;
 }
@@ -145,7 +152,7 @@ static Node *new_node_cond(int op, Node *cond) {
 
 /*
   program    = func *
-  func       = "int" ident "("  (define_var ",")* ")" block
+  func       = typedef "("  (typedef ",")* ")" block
   block      = "{" stmt* "}"
   stmt       = block
              | expr ";"
@@ -153,8 +160,8 @@ static Node *new_node_cond(int op, Node *cond) {
              | "if" "(" expr ")" stmt [ "else" stmt ]
              | "while" "(" expr ")" stmt
              | "for" "(" expr? ";" expr? ";" expr? ")" stmt
-             | define_var ";"
-  define"var = "int" ident
+             | typedef ";"
+  typedef    = "int" "*"* ident
   expr       = assign
   assign     = equality [ "=" assign ]
   equality   = relational ("==" relational | "!=" relational)*
@@ -181,6 +188,8 @@ static Node *add() ;
 static Node *mul() ;
 static Node *term() ;
 static Node *unary() ;
+
+static Type int_ty = {INT, NULL};
 
 static Token *token_at(int offset) {
   assert(tokens->data[pos+offset] != NULL);
@@ -314,19 +323,35 @@ static Node *parse_block() {
   return node;
 }
 
+static Type *parse_typedef() {
+  // check type defition
+  Token *basetype = expect(TK_INT);
+
+  if (strncmp(basetype->name, INT_TYPE, strlen(INT_TYPE))) {
+    error("  invalid type : expected '%s', but got '%s' : pos = %d\n", INT_TYPE, basetype->name, pos);
+  }
+
+  Type *ty = &int_ty;
+
+  // pointer type
+  while (consume('*')) {
+    ty = new_type(PTR, ty);
+  }
+
+  return ty;
+}
+
 static Node *function() {
   trace_parse("function");
 
-  // check type defition
-  Token *func_type = expect(TK_IDENT);
-  if (strncmp(func_type->name, INT_TYPE, strlen(INT_TYPE))) {
-    error("  invalid function type : expected '%s', but got '%s' : pos = %d\n", INT_TYPE, func_type->name, pos);
-  }
+  // parse type definition
+  Type *ty = parse_typedef();
 
   Token *t = expect(TK_IDENT);
 
   Node *node = new_node(ND_FUNC);
   node->name = t->name;
+  node->ty   = ty;
   node->scope = new_scope();
   scope = node->scope;
 
@@ -339,9 +364,9 @@ static Node *function() {
     Vector *args = new_vector();
 
     do {
-      Token *t_type  = expect(TK_IDENT);
+      Type *argtype = parse_typedef();
       Token *t_ident = expect(TK_IDENT);
-      vec_push(args, new_node_var_def(t_type->name, t_ident->name) );
+      vec_push(args, new_node_var_def(argtype, t_ident->name) );
     } while(consume(','));
 
     node->args = args;
@@ -385,12 +410,12 @@ static Node *stmt() {
   }
 
   // variable defition
-  if (current_token()->ty == TK_IDENT && token_at(1)->ty == TK_IDENT) {
-    Token *t_type  = expect(TK_IDENT);
+  if (current_token()->ty == TK_INT) {
+    Type *ty = parse_typedef();
     Token *t_ident = expect(TK_IDENT);
     expect(';');
 
-    return new_stmt(new_node_var_def(t_type->name, t_ident->name));
+    return new_stmt(new_node_var_def(ty, t_ident->name));
   }
 
   Node *node = expr();

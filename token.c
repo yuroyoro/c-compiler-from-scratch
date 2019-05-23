@@ -12,6 +12,7 @@ const char *TOKEN_STRING[] = {
   STRING(TK_NE),
   STRING(TK_LE),
   STRING(TK_GE),
+  STRING(TK_INT),
   STRING(TK_EOF),
 };
 
@@ -58,6 +59,7 @@ Map *keyword_map() {
   map_puti(map, "else",   TK_ELSE);
   map_puti(map, "while",  TK_WHILE);
   map_puti(map, "for",    TK_FOR);
+  map_puti(map, "int",    TK_INT);
 
   return map;
 }

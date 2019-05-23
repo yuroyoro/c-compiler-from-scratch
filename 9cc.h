@@ -47,6 +47,8 @@ enum {
   TK_LE,        // <=
   TK_GE,        // >=
 
+  TK_INT,       // int
+
   TK_EOF,       // terminator
 };
 
@@ -83,6 +85,11 @@ enum {
   ND_LE,        // <=
 };
 
+typedef struct Type {
+  enum {INT, PTR} ty;
+  struct Type *ptrof;
+} Type;
+
 typedef struct Scope {
   Map *lvars ;    // local variables
   int var_cnt ;   // local variables count
@@ -93,6 +100,7 @@ typedef struct Scope {
 
 typedef struct Node {
   int    op;        // operator or ND_NUM
+  Type  *ty;        // type
 
   /// lhs `binop` rhs
   struct Node *lhs;  // left hand side

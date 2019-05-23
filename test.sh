@@ -211,8 +211,6 @@ try 99 "int main() { return foo(); }" tmp-foo.o
 echo 'add(x, y) { return x+y; }' | gcc -xc -c -o tmp-add.o -
 try 14 "int main() { int a;a =10; return add(a, 4); }" tmp-add.o
 
-echo 'foo() { return 99; }' | gcc -xc -c -o tmp-foo.o -
-
 # step 15 : function definition
 
 code=$(cat <<EOF
@@ -244,5 +242,21 @@ EOF
 )
 
 try 6  "$code"
+
+# step 17: pointer
+try 99 "int main(){ int *p; int **pp; return 99; }"
+
+code=$(cat <<EOF
+#include <stdlib.h>
+int *intptr() { int *p = calloc(1, sizeof(int)); *p = 99; return p; }
+int deref(int *p) { return *p; }
+EOF
+)
+
+echo "$code" | gcc -xc -c -o tmp-intptr.o -
+
+try 99 "int main() { int *p; p = intptr(); return deref(p); }" tmp-intptr.o
+
+
 # end test
 echo OK
