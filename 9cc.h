@@ -83,6 +83,7 @@ enum {
   ND_NE,        // !=
   ND_LE,        // <=
   ND_DEREF,     // pointer dereference '*'
+  ND_ADDR,      // address-of operator '&'
 };
 
 typedef struct Type {

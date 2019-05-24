@@ -53,14 +53,18 @@ void print_node(Node *n, char *msg, int depth) {
   }
 
   if (n->stmts != NULL) {
+    char msg[8];
     for (int i = 0; i < n->stmts->len ; i++) {
-      print_node(n->stmts->data[i], "stmts", depth+4);
+      sprintf(msg, "stmts %d", i);
+      print_node(n->stmts->data[i], msg, depth+4);
     }
   }
 
   if (n->args != NULL) {
+    char msg[8];
     for (int i = 0; i < n->args->len ; i++) {
-      print_node(n->args->data[i], "args", depth+4);
+      sprintf(msg, "args %d", i);
+      print_node(n->args->data[i], msg, depth+4);
     }
   }
 }

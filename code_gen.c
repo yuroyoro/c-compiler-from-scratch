@@ -27,7 +27,7 @@ static void gen_lval(Node *node) {
   dump_node("gen_lval", node);
 
   if (node->op != ND_VAR_REF) {
-    error("invalid left value : %s", node->op);
+    error("invalid left value : %s", node_string(node->op));
   }
 
   printf("  mov   rax, rbp\n");
@@ -54,6 +54,26 @@ static void gen_deref(Node *node) {
   // load expression result as address
   printf("  pop   rax\n");
   printf("  mov   rax, [rax]\n");
+}
+
+static void gen_address_of(Node *node) {
+  dump_node("gen_address_of", node);
+  assert(node->op = ND_ADDR);
+
+  Node *expr = node->expr;
+  do {
+    if (expr->op == ND_EXPR) {
+      expr = expr->expr;
+      continue;
+    }
+    if (expr->op == ND_VAR_REF) {
+      break;
+    }
+
+    error("invalid address of  : %s", node_string(node->op));
+  } while(expr->op != ND_VAR_REF);
+
+  gen_lval(expr);
 }
 
 static void gen_return(Node *node) {
@@ -354,6 +374,10 @@ static void gen_expr(Node *node) {
 
     case ND_DEREF:
       gen_deref(expr);
+      break;
+
+    case ND_ADDR:
+      gen_address_of(expr);
       break;
 
     default:

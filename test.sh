@@ -259,6 +259,10 @@ try 99 "int main() { int *p; p = intptr(); return deref(p); }" tmp-intptr.o
 
 # deereference
 try 99 "int main() { int *p; p = intptr(); return *p; }" tmp-intptr.o
+# address-of
+try 99 "int main() { int a; int *p; a = 99; p = &a; return *p; }"
+# pointer of pointer type
+try 99 "int main() { int a; int *p1; int **p2; a = 99; p1 = &a; p2 = &p1; return **p2; }"
 
 # end test
 echo OK
