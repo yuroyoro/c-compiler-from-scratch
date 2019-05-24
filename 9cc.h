@@ -60,7 +60,6 @@ typedef struct {
 } Token;
 
 Vector *tokenize(char *p) ;
-void dump_token(int i, Token *token) ;
 char *token_string(int ty) ;
 
 // parse.c
@@ -133,15 +132,20 @@ typedef struct Node {
 extern Vector *code;
 
 void program() ;
-void dump_node(char *msg, Node *node) ;
 char *node_string(int ty) ;
 
 // code_gen.c
 void generate() ;
 
 // main.c
-extern bool debug ;
 void error(char *fmt, ...) ;
+
+// debug.c
+
+extern bool debug ;
+void dump_nodes() ;
+void dump_node(char *msg, Node *node) ;
+void dump_token(int i, Token *token) ;
 
 // test
 void runtest() ;

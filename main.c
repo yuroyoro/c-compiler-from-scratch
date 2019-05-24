@@ -9,8 +9,6 @@ void error(char *fmt, ...) {
   exit(1);
 }
 
-bool debug = false;
-
 int main(int argc, char **argv) {
   if (argc < 2) {
     fprintf(stderr, "invalid argument count\n");
@@ -43,6 +41,10 @@ int main(int argc, char **argv) {
   }
 
   program();
+
+  if (debug) {
+    dump_nodes();
+  }
 
   // generate assembler codes by traversing AST
   generate();

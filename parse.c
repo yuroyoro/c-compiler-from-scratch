@@ -31,12 +31,6 @@ char *node_string(int op) {
   return str;
 }
 
-void dump_node(char *msg, Node *n) {
-  if (debug) {
-    printf("  # %-10s : node %-10s : op = %d, val = %d, name = [%s]\n", msg, node_string(n->op), n->op, n->val, n->name);
-  }
-}
-
 #define INT_TYPE "int"
 
 // Abstract syntax tree

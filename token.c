@@ -28,10 +28,6 @@ char *token_string(int ty) {
   return str;
 }
 
-void dump_token(int i, Token *t) {
-  printf("# token %2d : %-10s : ty = %d, val = %d, input = [%s]\n", i, token_string(t->ty), t->ty, t->val, t->input);
-}
-
 static Token *new_token(int ty, char *input) {
   Token *token = malloc(sizeof(Token));
   token->ty = ty;
