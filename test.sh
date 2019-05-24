@@ -257,6 +257,8 @@ echo "$code" | gcc -xc -c -o tmp-intptr.o -
 
 try 99 "int main() { int *p; p = intptr(); return deref(p); }" tmp-intptr.o
 
+# deereference
+try 99 "int main() { int *p; p = intptr(); return *p; }" tmp-intptr.o
 
 # end test
 echo OK

@@ -45,6 +45,17 @@ static void gen_local_var(Node *node) {
   gen_load_mem();
 }
 
+static void gen_deref(Node *node) {
+  dump_node("gen_deref", node);
+  assert(node->op = ND_DEREF);
+
+  gen_expr(node->expr);
+
+  // load expression result as address
+  printf("  pop   rax\n");
+  printf("  mov   rax, [rax]\n");
+}
+
 static void gen_return(Node *node) {
   dump_node("gen_return", node);
   gen_expr(node->expr);
@@ -339,6 +350,10 @@ static void gen_expr(Node *node) {
 
     case '=' :
       gen_assign(expr);
+      break;
+
+    case ND_DEREF:
+      gen_deref(expr);
       break;
 
     default:

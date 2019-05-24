@@ -16,6 +16,7 @@ const char *NODE_STRING[] = {
   STRING(ND_EQ),
   STRING(ND_NE),
   STRING(ND_LE),
+  STRING(ND_DEREF),
 };
 
 char *node_string(int op) {
@@ -105,6 +106,17 @@ static Node *new_node_var_def(Type *ty, char *name ) {
   return node;
 };
 
+static Node *new_deref(Node *expr) {
+  Node *node = new_node(ND_DEREF);
+  if (expr->op != ND_EXPR) {
+    expr = new_expr(expr);
+  }
+
+  node->expr = expr;
+
+  return node;
+}
+
 static Node *new_node_bin_op(int op, Node *lhs, Node *rhs) {
   Node *node = new_node(op);
   node->lhs = new_expr(lhs);
@@ -168,7 +180,7 @@ static Node *new_node_cond(int op, Node *cond) {
   relational = add ("<" add | "<=" add | ">" add | ">=" add)*
   add        = mul ("+" mul | "-" mul)*
   mul        = unary ("*" unary | "/" unary)*
-  unary      = ("+" | "-")? term
+  unary      = (("+" | "-")? term | ("*" mul)
   term       = num | ident | call | (" expr ")"
   call       = ident "(" (expr ",")* ")"
   ident      = A-Za-z0-9_
@@ -580,6 +592,9 @@ static Node *unary() {
   }
   if (consume('-')) {
     return new_node_bin_op('-', new_node_num(0), term());
+  }
+  if (consume('*')) {
+    return new_deref(mul());
   }
 
   return term();
