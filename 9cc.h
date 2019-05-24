@@ -89,6 +89,7 @@ enum {
 typedef struct Type {
   enum {INT, PTR} ty;
   struct Type *ptrof;
+  int size;
 } Type;
 
 typedef struct Scope {

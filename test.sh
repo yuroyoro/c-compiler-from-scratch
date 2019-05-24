@@ -264,5 +264,31 @@ try 99 "int main() { int a; int *p; a = 99; p = &a; return *p; }"
 # pointer of pointer type
 try 99 "int main() { int a; int *p1; int **p2; a = 99; p1 = &a; p2 = &p1; return **p2; }"
 
+# step 18: add and sub to pointer
+
+code=$(cat <<EOF
+#include <stdlib.h>
+int *int_array() {
+  int *ary = calloc(4, sizeof(int));
+  for (int i = 0 ; i < 4; i++) {
+    ary[i] = i * 10;
+  }
+  return ary;
+}
+int **intptr_array() {
+  int *ary = int_array();
+  int **ptr = calloc(4, sizeof(int *));
+  for (int i = 0 ; i < 4; i++) {
+    ptr[i] = ary+i;
+  }
+  return ptr;
+}
+EOF
+)
+echo "$code" | gcc -xc -std=c11 -c -o tmp-array.o -
+
+try 20 "int main() { int *p; p = int_array(); return *(p + 2); }" tmp-array.o
+try 30 "int main() { int **p; p = intptr_array(); return **(p + 3); }" tmp-array.o
+
 # end test
 echo OK

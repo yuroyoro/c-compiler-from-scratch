@@ -53,6 +53,16 @@ static Type *new_type(int ty, Type *ptr) {
   Type *t = malloc(sizeof(Type));
   t->ty = ty;
   t->ptrof = ptr;
+  switch(ty) {
+    case INT :
+      t->size = 4;
+      break;
+    case PTR:
+      t->size = 8;
+      break;
+    default:
+      error("unknown type size : %d", ty);
+  }
 
   return t;
 }
@@ -83,6 +93,7 @@ static Node *new_expr(Node *expr) {
   }
 
   node->expr = e;
+  node->ty   = e->ty;
 
   return node;
 }
@@ -207,7 +218,7 @@ static Node *mul() ;
 static Node *term() ;
 static Node *unary() ;
 
-static Type int_ty = {INT, NULL};
+static Type int_ty = {INT, NULL, 4};
 
 static Token *token_at(int offset) {
   assert(tokens->data[pos+offset] != NULL);

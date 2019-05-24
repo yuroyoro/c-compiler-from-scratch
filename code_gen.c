@@ -260,6 +260,21 @@ static void gen_assign(Node *node) {
   printf("  mov   rax, rdi\n");
 }
 
+static void gen_ptr_size_mul(Node *node) {
+  dump_node("gen_ptr_size_mul", node);
+  Type *ty = node->lhs->ty;
+  if (ty == NULL || ty->ty != PTR) {
+    return;
+  }
+
+  printf("  push  rax\n");
+  printf("  mov   rax, rdi\n");
+  printf("  mov   rdi, %d\n", ty->ptrof->size);
+  printf("  mul   rdi\n");
+  printf("  mov   rdi, rax\n");
+  printf("  pop   rax\n");
+}
+
 static void gen_bin_op(Node *node) {
   dump_node("gen_bin_op", node);
 
@@ -285,12 +300,16 @@ static void gen_bin_op(Node *node) {
     case '<':
       gen_cmp("setl", node);
       break;
-    case '+':
+    case '+': {
+      gen_ptr_size_mul(node) ;
       printf("  add   rax, rdi\n");
       break;
-    case '-':
+    }
+    case '-': {
+      gen_ptr_size_mul(node) ;
       printf("  sub   rax, rdi\n");
       break;
+    }
     case '*':
       printf("  mul   rdi\n");
       break;
