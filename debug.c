@@ -21,7 +21,7 @@ void print_node(Node *n, char *msg, int depth) {
 
   printf("# %s- %-10s : node %-10s : op = %d, val = %d, name = [%s]\n", sp, msg, node_string(n->op), n->op, n->val, n->name);
   if (n->ty != NULL) {
-    printf("# %s- %-10s : type %d\n", sp, msg, n->ty->ty);
+    printf("# %s- %-10s : type %s\n", sp, msg, type_string(n->ty));
   }
 
   if (n->lhs != NULL) {

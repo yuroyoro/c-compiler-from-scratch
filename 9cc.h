@@ -88,9 +88,10 @@ enum {
 };
 
 typedef struct Type {
-  enum {INT, PTR} ty;
+  enum {INT, PTR, ARRAY} ty;
   struct Type *ptrof;
-  int size;
+  size_t size;
+  size_t array_size;
 } Type;
 
 typedef struct Scope {
@@ -136,6 +137,7 @@ extern Vector *code;
 
 void program() ;
 char *node_string(int ty) ;
+char *type_string(Type *ty) ;
 
 // code_gen.c
 void generate() ;

@@ -26,12 +26,19 @@ static void gen_cmp(char *insn, Node *node) {
 static void gen_lval(Node *node) {
   dump_node("gen_lval", node);
 
-  if (node->op != ND_VAR_REF) {
-    error("invalid left value : %s", node_string(node->op));
+  switch (node->op){
+    case ND_VAR_REF:
+      printf("  mov   rax, rbp\n");
+      printf("  sub   rax, %d\n", node->offset);
+      break;
+    case ND_DEREF:
+      gen_expr(node->expr);
+      // load expression result as address
+      printf("  pop   rax\n");
+      break;
+    default:
+      error("invalid left value : %s", node_string(node->op));
   }
-
-  printf("  mov   rax, rbp\n");
-  printf("  sub   rax, %d\n", node->offset);
 }
 
 static void gen_load_mem() {
@@ -269,7 +276,7 @@ static void gen_ptr_size_mul(Node *node) {
 
   printf("  push  rax\n");
   printf("  mov   rax, rdi\n");
-  printf("  mov   rdi, %d\n", ty->ptrof->size);
+  printf("  mov   rdi, %d\n", (int)ty->ptrof->size);
   printf("  mul   rdi\n");
   printf("  mov   rdi, rax\n");
   printf("  pop   rax\n");

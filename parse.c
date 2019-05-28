@@ -35,6 +35,31 @@ char *node_string(int op) {
 #define INT_TYPE "int"
 static Type int_ty = {INT, NULL, 4};
 
+char *type_string(Type *ty) {
+  Type *ptrof = ty;
+  int ptrdepth = 0;
+  while (ptrof->ptrof != NULL) {
+    ptrdepth++;
+    ptrof = ptrof->ptrof;
+  }
+
+  assert(ptrof->ty == INT);
+  char *ptrstr = malloc(sizeof(char) * (ptrdepth+1));
+  for (int i = 0; i < ptrdepth; i++){
+    ptrstr[i] = '*';
+  }
+  ptrstr[ptrdepth] = '\0';
+  char *tyname = "int";
+  int len = strlen(tyname) + 1 + ptrdepth + 1;
+
+  char *str = malloc(sizeof(char) * len);
+
+  sprintf(str, "%s %s", tyname, ptrstr);
+  free(ptrstr);
+
+  return str;
+}
+
 // Abstract syntax tree
 
 Vector *tokens;
@@ -63,6 +88,9 @@ static Type *new_type(int ty, Type *ptr) {
       break;
     case PTR:
       t->size = 8;
+      break;
+    case ARRAY:
+      t->size = ptr->size;
       break;
     default:
       error("unknown type size : %d", ty);
@@ -108,13 +136,26 @@ static Node *new_node_var_def(Type *ty, char *name ) {
   node->name = name;
   node->ty   = ty;
 
-  scope->stacksize += 8;
+  int size = 8;
+  if (ty->ty == ARRAY) {
+    size = ty->array_size * 8;
+  }
+
+  scope->stacksize += size;
   scope->var_cnt++;
-  node->offset = scope->stacksize;
   map_put(scope->lvars, name, node);
+
+  node->offset = scope->stacksize;
 
   return node;
 };
+
+static Node *convert_array_to_ptr(Node *node) {
+  if (node->ty->ty == ARRAY) {
+    node->ty = new_type(PTR, node->ty->ptrof);
+  }
+  return node;
+}
 
 static Node *new_deref(Node *expr) {
   Node *node = new_node(ND_DEREF);
@@ -143,8 +184,8 @@ static Node *new_address_of(Node *expr) {
 
 static Node *new_node_bin_op(int op, Node *lhs, Node *rhs) {
   Node *node = new_node(op);
-  node->lhs = new_expr(lhs);
-  node->rhs = new_expr(rhs);
+  node->lhs = convert_array_to_ptr(new_expr(lhs));
+  node->rhs = convert_array_to_ptr(new_expr(rhs));
   node->ty = lhs->ty;
   return node;
 }
@@ -173,6 +214,11 @@ static Node *new_node_var_ref(char *name) {
   node->offset = tynode->offset;
   node->ty     = tynode->ty;
 
+  // if array, convert to pointer value
+  if (tynode->ty->ty == ARRAY) {
+    node = new_address_of(node);
+  }
+
   return node;
 }
 
@@ -200,7 +246,7 @@ static Node *new_node_cond(int op, Node *cond) {
              | "while" "(" expr ")" stmt
              | "for" "(" expr? ";" expr? ";" expr? ")" stmt
              | typedef ";"
-  typedef    = "int" "*"* ident
+  typedef    = "int" "*"* ident [ "[" num "]" ]
   expr       = assign
   assign     = equality [ "=" assign ]
   equality   = relational ("==" relational | "!=" relational)*
@@ -211,6 +257,7 @@ static Node *new_node_cond(int op, Node *cond) {
   term       = num | ident | call | (" expr ")"
   call       = ident "(" (expr ",")* ")"
   ident      = A-Za-z0-9_
+  num        = 0-9
 */
 
 Vector *code ;
@@ -454,6 +501,16 @@ static Node *stmt() {
   if (current_token()->ty == TK_INT) {
     Type *ty = parse_typedef();
     Token *t_ident = expect(TK_IDENT);
+
+    // parse array
+    if (consume('[')) {
+      Token *num = expect(TK_NUM);
+      Type *ptrof = ty;
+      ty = new_type(ARRAY, ptrof);
+      ty->array_size = num->val;
+      expect(']');
+    }
+
     expect(';');
 
     return new_stmt(new_node_var_def(ty, t_ident->name));
@@ -636,24 +693,56 @@ static Node *term() {
 static Node *parse_sizeof() {
   trace_parse("parse_sizeof");
 
+  Token *t = current_token();
+  if (t->ty == TK_IDENT) {
+    Node *tynode = (Node *)map_get(scope->lvars, t->name);
+    Type *ty = tynode->ty;
+    if(ty->ty == ARRAY) {
+      int size = ty->size * ty->array_size;
+      pos++;
+      return new_node_num(size);
+    }
+  }
+  if (t->ty == '(' && token_at(1)->ty == TK_IDENT && token_at(2)->ty == ')') {
+    char *name = token_at(1)->name;
+    Node *tynode = (Node *)map_get(scope->lvars, name);
+    Type *ty = tynode->ty;
+    if(ty->ty == ARRAY) {
+      int size = ty->size * ty->array_size;
+      pos += 3;
+      return new_node_num(size);
+    }
+  }
+
   Node *node = unary();
   assert(node->ty != NULL);
+  int size = node->ty->size;
 
-  return new_node_num(node->ty->size);
+  return new_node_num(size);
+}
+
+static void unary_typecheck(char *op, Node *expr) {
+  if (expr->ty->ty == PTR || expr->ty->ty == ARRAY) {
+    error("invalid argument type '%s' to unary expression '%s'", type_string(expr->ty), op);
+  }
 }
 
 static Node *unary() {
   if (consume('+')) {
-    return term();
+    Node *node = term();
+    unary_typecheck("+", node);
+    return node;
   }
   if (consume('-')) {
-    return new_node_bin_op('-', new_node_num(0), term());
+    Node *node = term();
+    unary_typecheck("-", node);
+    return new_node_bin_op('-', new_node_num(0), node);
   }
   if (consume(TK_SIZEOF)) {
     return parse_sizeof();
   }
   if (consume('*')) {
-    return new_deref(mul());
+    return new_deref(convert_array_to_ptr(mul()));
   }
   if (consume('&')) {
     return new_address_of(mul());

@@ -261,6 +261,7 @@ try 99 "int main() { int *p; p = intptr(); return deref(p); }" tmp-intptr.o
 try 99 "int main() { int *p; p = intptr(); return *p; }" tmp-intptr.o
 # address-of
 try 99 "int main() { int a; int *p; a = 99; p = &a; return *p; }"
+try 99 "int main() { int a; int *p; p = &a; *p = 99; return *p; }"
 # pointer of pointer type
 try 99 "int main() { int a; int *p1; int **p2; a = 99; p1 = &a; p2 = &p1; return **p2; }"
 
@@ -294,6 +295,24 @@ try 30 "int main() { int **p; p = intptr_array(); return **(p + 3); }" tmp-array
 
 try  4 "int main() { return sizeof 4; }"
 try 20 "int foo(){ return 1;} int main() { int a; int *p; return sizeof(a) + sizeof(p) + sizeof(a * 1) + sizeof(foo()); }"
+
+# step 20: array
+try 10 "int main() { int arr[3]; *arr = 10; return *arr; }"
+try 16 "int main() { int arr[4]; return sizeof(arr); }"
+
+code=$(cat <<EOF
+int main() {
+  int a[2];
+  *a = 1;
+  *(a + 1) = 2;
+  int *p;
+  p = a;
+  return *p + *(p + 1);
+}
+EOF
+)
+
+try 3  "$code"
 
 # end test
 echo OK
