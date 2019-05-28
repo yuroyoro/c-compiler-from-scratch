@@ -9,6 +9,15 @@ void error(char *fmt, ...) {
   exit(1);
 }
 
+// warning reporting function
+void warn(char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  fprintf(stdout, "# [warn] ");
+  vfprintf(stdout, fmt, ap);
+  fprintf(stdout, "\n");
+}
+
 int main(int argc, char **argv) {
   if (argc < 2) {
     fprintf(stderr, "invalid argument count\n");

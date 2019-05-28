@@ -48,6 +48,7 @@ enum {
   TK_GE,        // >=
 
   TK_INT,       // int
+  TK_SIZEOF,    // sizeof
 
   TK_EOF,       // terminator
 };
@@ -141,6 +142,7 @@ void generate() ;
 
 // main.c
 void error(char *fmt, ...) ;
+void warn(char *fmt, ...) ;
 
 // debug.c
 

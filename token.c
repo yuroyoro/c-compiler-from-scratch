@@ -13,6 +13,7 @@ const char *TOKEN_STRING[] = {
   STRING(TK_LE),
   STRING(TK_GE),
   STRING(TK_INT),
+  STRING(TK_SIZEOF),
   STRING(TK_EOF),
 };
 
@@ -56,6 +57,7 @@ Map *keyword_map() {
   map_puti(map, "while",  TK_WHILE);
   map_puti(map, "for",    TK_FOR);
   map_puti(map, "int",    TK_INT);
+  map_puti(map, "sizeof", TK_SIZEOF);
 
   return map;
 }
@@ -175,7 +177,7 @@ Vector *tokenize(char *p) {
       continue;
     }
 
-    error("could not tokenize: %s", p);
+    error("could not tokenize: `%s`", p);
     exit(1);
   }
 

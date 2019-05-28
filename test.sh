@@ -290,5 +290,10 @@ echo "$code" | gcc -xc -std=c11 -c -o tmp-array.o -
 try 20 "int main() { int *p; p = int_array(); return *(p + 2); }" tmp-array.o
 try 30 "int main() { int **p; p = intptr_array(); return **(p + 3); }" tmp-array.o
 
+# step 19: sizeof operator
+
+try  4 "int main() { return sizeof 4; }"
+try 20 "int foo(){ return 1;} int main() { int a; int *p; return sizeof(a) + sizeof(p) + sizeof(a * 1) + sizeof(foo()); }"
+
 # end test
 echo OK

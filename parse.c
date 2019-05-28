@@ -33,6 +33,7 @@ char *node_string(int op) {
 }
 
 #define INT_TYPE "int"
+static Type int_ty = {INT, NULL, 4};
 
 // Abstract syntax tree
 
@@ -41,6 +42,9 @@ int pos = 0; // current token position
 
 // scope
 Scope *scope ; // TODO: use stack for scope chain
+
+// function table
+Map *func;
 
 static Scope *new_scope() {
   Scope *scope = malloc(sizeof(Scope));
@@ -119,6 +123,8 @@ static Node *new_deref(Node *expr) {
   }
 
   node->expr = expr;
+  assert(expr->ty->ty == PTR);
+  node->ty = expr->ty->ptrof;
 
   return node;
 }
@@ -130,6 +136,7 @@ static Node *new_address_of(Node *expr) {
   }
 
   node->expr = expr;
+  node->ty = new_type(PTR, expr->ty);
 
   return node;
 }
@@ -138,12 +145,14 @@ static Node *new_node_bin_op(int op, Node *lhs, Node *rhs) {
   Node *node = new_node(op);
   node->lhs = new_expr(lhs);
   node->rhs = new_expr(rhs);
+  node->ty = lhs->ty;
   return node;
 }
 
 static Node *new_node_num(int val) {
   Node *node = new_node(ND_NUM);
   node->val = val;
+  node->ty  = &int_ty;
   return node;
 }
 
@@ -167,9 +176,10 @@ static Node *new_node_var_ref(char *name) {
   return node;
 }
 
-static Node *new_node_expr(int op, Node *expr) {
-  Node *node = new_node(op);
+static Node *new_node_return(Node *expr) {
+  Node *node = new_node(ND_RETURN);
   node->expr = expr;
+  node->ty   = expr->ty;
   return node;
 }
 
@@ -197,7 +207,7 @@ static Node *new_node_cond(int op, Node *cond) {
   relational = add ("<" add | "<=" add | ">" add | ">=" add)*
   add        = mul ("+" mul | "-" mul)*
   mul        = unary ("*" unary | "/" unary)*
-  unary      = (("+" | "-")? term | ("*" | "&") mul
+  unary      = (("+" | "-")? term | ("*" | "&") mul | "sizeof" unary
   term       = num | ident | call | (" expr ")"
   call       = ident "(" (expr ",")* ")"
   ident      = A-Za-z0-9_
@@ -217,8 +227,6 @@ static Node *add() ;
 static Node *mul() ;
 static Node *term() ;
 static Node *unary() ;
-
-static Type int_ty = {INT, NULL, 4};
 
 static Token *token_at(int offset) {
   assert(tokens->data[pos+offset] != NULL);
@@ -263,6 +271,7 @@ void program() {
   trace_parse("program");
 
   code = new_vector();
+  func = new_map();
 
   while(current_token()->ty != TK_EOF) {
     vec_push(code, function());
@@ -270,7 +279,7 @@ void program() {
 }
 
 static Node *parse_return() {
-  Node *node = new_node_expr(ND_RETURN, expr());
+  Node *node = new_node_return(expr());
 
   Token *t = current_token();
   if (!consume(';') && t->ty != TK_EOF) {
@@ -384,6 +393,9 @@ static Node *function() {
   node->scope = new_scope();
   scope = node->scope;
 
+  // put to function table
+  map_put(func, node->name, node);
+
   // TODO: check duplicate function definition
 
   expect('(');
@@ -471,6 +483,7 @@ static Node *assign() {
     Node *assign_node = new_node('=');
     assign_node->lhs = node;
     assign_node->rhs = new_expr(assign());
+    assign_node->ty  = node->ty;
     node = assign_node;
   }
 
@@ -485,8 +498,10 @@ static Node *equality() {
   for (;;) {
     if (consume(TK_EQ)){
       node = new_node_bin_op(ND_EQ, node, relational());
+      node->ty = &int_ty;
     } else if (consume(TK_NE)) {
       node = new_node_bin_op(ND_NE, node, relational());
+      node->ty = &int_ty;
     } else {
       return node;
     }
@@ -501,12 +516,16 @@ static Node *relational() {
   for (;;) {
     if (consume(TK_LE)){
       node = new_node_bin_op(ND_LE, node, add());
+      node->ty = &int_ty;
     } else if (consume('<')) {
       node = new_node_bin_op('<', node, add());
+      node->ty = &int_ty;
     } else if (consume(TK_GE)) {
       node = new_node_bin_op(ND_LE, add(), node);
+      node->ty = &int_ty;
     } else if (consume('>')) {
       node = new_node_bin_op('<', add(), node);
+      node->ty = &int_ty;
     } else {
       return node;
     }
@@ -552,6 +571,17 @@ static Node *parse_num(Token *t) {
 static Node *parse_call(Token *t) {
   Node *node = new_node(ND_CALL);
   node->name = t->name;
+
+  // typing
+  Node *target = (Node *)map_get(func, node->name);
+  Type *ty = &int_ty;
+  if (target == NULL) {
+    warn("implicit declaration of function '%s'", node->name);
+  } else {
+    ty = target->ty;
+  }
+  node->ty = ty;
+
 
   if (consume(')')) {
     return node;
@@ -603,12 +633,24 @@ static Node *term() {
   exit(1);
 }
 
+static Node *parse_sizeof() {
+  trace_parse("parse_sizeof");
+
+  Node *node = unary();
+  assert(node->ty != NULL);
+
+  return new_node_num(node->ty->size);
+}
+
 static Node *unary() {
   if (consume('+')) {
     return term();
   }
   if (consume('-')) {
     return new_node_bin_op('-', new_node_num(0), term());
+  }
+  if (consume(TK_SIZEOF)) {
+    return parse_sizeof();
   }
   if (consume('*')) {
     return new_deref(mul());
