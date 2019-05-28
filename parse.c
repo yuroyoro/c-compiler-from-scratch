@@ -254,8 +254,9 @@ static Node *new_node_cond(int op, Node *cond) {
   add        = mul ("+" mul | "-" mul)*
   mul        = unary ("*" unary | "/" unary)*
   unary      = (("+" | "-")? term | ("*" | "&") mul | "sizeof" unary
-  term       = num | ident | call | (" expr ")"
+  term       = num | ident | call | (" expr ")" | array_op
   call       = ident "(" (expr ",")* ")"
+  array_op   = ident "[" expr "]
   ident      = A-Za-z0-9_
   num        = 0-9
 */
@@ -639,7 +640,6 @@ static Node *parse_call(Token *t) {
   }
   node->ty = ty;
 
-
   if (consume(')')) {
     return node;
   }
@@ -654,6 +654,14 @@ static Node *parse_call(Token *t) {
   node->args = args;
 
   return node;
+}
+
+static Node *parse_array_op(Token *t) {
+  Node *lhs = new_node_var_ref(t->name);
+  Node *rhs = expr();
+  expect(']');
+
+  return new_deref(new_node_bin_op('+', lhs, rhs));
 }
 
 static Node *term() {
@@ -682,6 +690,9 @@ static Node *term() {
     pos++;
     if (consume('(')) {
       return parse_call(t);
+    }
+    if (consume('[')) {
+      return parse_array_op(t);
     }
     return new_node_var_ref(t->name);
   }

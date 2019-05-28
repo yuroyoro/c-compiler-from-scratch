@@ -314,5 +314,8 @@ EOF
 
 try 3  "$code"
 
+# step 20: array operator
+try 11 "int main() { int arr[3]; arr[2] = 11; return arr[2]; }"
+
 # end test
 echo OK
